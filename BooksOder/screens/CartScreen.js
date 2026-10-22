@@ -1,138 +1,109 @@
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useCallback } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
-import { Alert, FlatList, Image, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
-// Import bộ style từ thư mục styles
+// Import bộ style từ file riêng
 import { styles } from '../styles/CartScreenStyles';
 
 export default function CartScreen({ navigation }) {
   const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  const userId = 'user123'; 
+  const API_URL = 'http://192.168.101.105:3000'; 
 
-  // Tải dữ liệu giỏ hàng mỗi khi mở màn hình này
   useFocusEffect(
     useCallback(() => {
-      loadCart();
+      fetchCart();
     }, [])
   );
 
-  const loadCart = async () => {
+  const fetchCart = async () => {
+    setLoading(true);
     try {
-      const savedCart = await AsyncStorage.getItem('cart');
-      if (savedCart) {
-        setCartItems(JSON.parse(savedCart));
-      } else {
-        setCartItems([]);
-      }
+      const response = await fetch(`${API_URL}/cart/${userId}`);
+      const data = await response.json();
+      setCartItems(data);
     } catch (error) {
       console.error(error);
+      Alert.alert('Lỗi mạng', 'Không thể tải giỏ hàng từ Backend');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Hàm xóa sách khỏi giỏ hàng
-  const removeFromCart = async (bookId) => {
-    try {
-      const newCart = cartItems.filter(item => item.id !== bookId);
-      setCartItems(newCart);
-      await AsyncStorage.setItem('cart', JSON.stringify(newCart));
-    } catch (error) {
-      console.error(error);
+  const totalAmount = cartItems.reduce((sum, item) => {
+    return sum + (item.bookId?.price * item.quantity);
+  }, 0);
+
+  const handleGoToCheckout = () => {
+    if (cartItems.length === 0) {
+      return Alert.alert('Thông báo', 'Giỏ hàng của bạn đang trống!');
     }
+    // Chuyển sang màn hình Checkout và truyền tổng tiền sang đó
+    navigation.navigate('Checkout', { totalAmount });
   };
 
-  // Tính tổng tiền
-  const getTotalPrice = () => {
-    return cartItems.reduce((sum, item) => sum + item.price, 0);
-  };
-
-  // Hàm xử lý thanh toán
-  const handleCheckout = () => {
-    if (cartItems.length === 0) return;
-
-    Alert.alert(
-      "Đặt hàng thành công! 🎉",
-      `Cảm ơn bạn đã đặt mua ${cartItems.length} cuốn sách với tổng tiền ${getTotalPrice().toLocaleString('vi-VN')} đ. Đơn hàng sẽ được giao đến bạn sớm nhất!`,
-      [
-        {
-          text: "OK",
-          onPress: async () => {
-            try {
-              // Xóa dữ liệu giỏ hàng trong bộ nhớ
-              await AsyncStorage.removeItem('cart');
-              setCartItems([]); // Làm trống state giao diện
-            } catch (error) {
-              console.error(error);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  // 1. GIAO DIỆN KHI GIỎ HÀNG TRỐNG
-  if (cartItems.length === 0) {
-    return (
-      <SafeAreaView style={styles.emptyContainer}>
-        <View style={styles.emptyContent}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="cart" size={56} color="#1A1A1A" />
-          </View>
-          <Text style={styles.emptyTitle}>Giỏ hàng đang trống</Text>
-          <Text style={styles.emptyDesc}>Hãy chọn vài cuốn sách hay để bắt đầu hành trình đọc nhé.</Text>
-          
-          <TouchableOpacity 
-            style={styles.exploreBtn} 
-            onPress={() => navigation.navigate('Home')}
-          >
-            <Text style={styles.exploreBtnText}>Khám phá sách</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // 2. GIAO DIỆN KHI CÓ SẢN PHẨM TRONG GIỎ
-  const renderCartItem = ({ item }) => (
+  const renderItem = ({ item }) => (
     <View style={styles.cartItem}>
-      <Image source={{ uri: item.coverImage }} style={styles.itemImage} />
+      <Image source={{ uri: item.bookId?.coverImage }} style={styles.itemImage} />
       <View style={styles.itemInfo}>
-        <Text style={styles.itemTitle} numberOfLines={2}>{item.bookName}</Text>
-        <Text style={styles.itemPrice}>{item.price.toLocaleString('vi-VN')} đ</Text>
+        <Text style={styles.itemTitle} numberOfLines={2}>{item.bookId?.bookName}</Text>
+        <Text style={styles.itemPrice}>{item.bookId?.price?.toLocaleString('vi-VN')} đ</Text>
+        <Text style={{ color: '#666', marginTop: 5 }}>Số lượng: {item.quantity}</Text>
       </View>
-      <TouchableOpacity 
-        style={styles.removeBtn} 
-        onPress={() => removeFromCart(item.id)}
-      >
-        <Ionicons name="trash-outline" size={24} color="#E25842" />
-      </TouchableOpacity>
     </View>
   );
 
+  if (loading) {
+    return <ActivityIndicator size="large" color="#C5532A" style={{ flex: 1, justifyContent: 'center' }} />;
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.mainTitle}>Giỏ hàng</Text>
+        <Text style={styles.mainTitle}>Giỏ hàng của bạn</Text>
       </View>
       
-      <FlatList
-        data={cartItems}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderCartItem}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
-
-      <View style={styles.footer}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Tổng cộng:</Text>
-          <Text style={styles.totalValue}>{getTotalPrice().toLocaleString('vi-VN')} đ</Text>
+      {cartItems.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyContent}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="cart-outline" size={60} color="#C5532A" />
+            </View>
+            <Text style={styles.emptyTitle}>Giỏ hàng trống</Text>
+            <Text style={styles.emptyDesc}>Bạn chưa có cuốn sách nào trong giỏ hàng. Hãy khám phá thêm nhé!</Text>
+            <TouchableOpacity 
+              style={styles.exploreBtn}
+              onPress={() => navigation.navigate('Home')}
+            >
+              <Text style={styles.exploreBtnText}>Khám phá ngay</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity style={styles.checkoutBtn} onPress={handleCheckout}>
-          <Text style={styles.checkoutBtnText}>Thanh toán</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      ) : (
+        <>
+          <FlatList
+            data={cartItems}
+            keyExtractor={item => item._id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          />
+          
+          <View style={styles.footer}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Tổng thanh toán:</Text>
+              <Text style={styles.totalValue}>{totalAmount.toLocaleString('vi-VN')} đ</Text>
+            </View>
+            
+            <TouchableOpacity style={styles.checkoutBtn} onPress={handleGoToCheckout}>
+              <Text style={styles.checkoutBtnText}>MUA HÀNG</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+    </View>
   );
 }

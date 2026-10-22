@@ -15,8 +15,11 @@ export default function HomeScreen({ navigation, route }) {
   const [activeCategory, setActiveCategory] = useState('Tất cả');
   const [activeSort, setActiveSort] = useState('Bán chạy');
   const [searchQuery, setSearchQuery] = useState('');
+  const [favorites, setFavorites] = useState([]); // Mảng chứa ID các sách đã thích
 
-  // Hàm xử lý Đăng xuất cho User
+  const userId = 'user123';
+  const API_URL = 'http://192.168.101.105:3000';
+
   const handleLogout = () => {
     Alert.alert("Xác nhận", "Bạn có chắc chắn muốn đăng xuất?", [
       { text: "Hủy", style: "cancel" },
@@ -37,12 +40,9 @@ export default function HomeScreen({ navigation, route }) {
     ]);
   };
 
-  // State lưu danh sách sách yêu thích
-  const [favorites, setFavorites] = useState([]);
-
   // Gọi API lấy danh sách sách
   useEffect(() => {
-    fetch('https://6ac736b375a4ce3fe72171dd.mockapi.io/books')
+    fetch(`${API_URL}/books`)
       .then((response) => response.json())
       .then((data) => {
         setBooks(data);
@@ -54,40 +54,50 @@ export default function HomeScreen({ navigation, route }) {
       });
   }, []);
 
-  // Tự động tải lại danh sách yêu thích mỗi khi quay lại màn hình này
+  // Tự động tải lại danh sách yêu thích từ API mỗi khi quay lại trang chủ
   useFocusEffect(
     useCallback(() => {
-      loadFavorites();
+      fetchFavorites();
     }, [])
   );
 
-  const loadFavorites = async () => {
+  const fetchFavorites = async () => {
     try {
-      const savedFavs = await AsyncStorage.getItem('favorites');
-      if (savedFavs) {
-        setFavorites(JSON.parse(savedFavs));
-      }
+      const response = await fetch(`${API_URL}/favorites/${userId}`);
+      const data = await response.json();
+      // Trích xuất ID sách để dễ dàng kiểm tra ở hàm render
+      const favIds = data.map(fav => fav.bookId._id || fav.bookId);
+      setFavorites(favIds);
     } catch (error) {
-      console.error(error);
+      console.error('Lỗi tải danh sách yêu thích:', error);
     }
   };
 
-  // Hàm xử lý Thêm/Xóa khỏi danh sách yêu thích
+  // Hàm xử lý Thêm/Xóa khỏi danh sách yêu thích qua API
   const toggleFavorite = async (book) => {
+    // Đảo trạng thái trên UI ngay lập tức cho mượt
+    const isExist = favorites.includes(book.id);
+    if (isExist) {
+      setFavorites(favorites.filter(id => id !== book.id));
+    } else {
+      setFavorites([...favorites, book.id]);
+    }
+
+    // Gọi API lưu vào DB
     try {
-      let newFavorites = [...favorites];
-      const isExist = newFavorites.find(item => item.id === book.id);
+      const response = await fetch(`${API_URL}/favorites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, bookId: book.id })
+      });
       
-      if (isExist) {
-        newFavorites = newFavorites.filter(item => item.id !== book.id);
-      } else {
-        newFavorites.push(book);
+      // Nếu API lỗi, tự động fetch lại để đồng bộ với server
+      if (!response.ok) {
+        fetchFavorites();
       }
-      
-      setFavorites(newFavorites);
-      await AsyncStorage.setItem('favorites', JSON.stringify(newFavorites));
     } catch (error) {
       console.error(error);
+      fetchFavorites();
     }
   };
 
@@ -112,7 +122,8 @@ export default function HomeScreen({ navigation, route }) {
   }
 
   const renderBookItem = ({ item }) => {
-    const isFav = favorites.find(b => b.id === item.id);
+    // Kiểm tra xem ID sách có nằm trong danh sách yêu thích từ API không
+    const isFav = favorites.includes(item.id);
 
     return (
       <TouchableOpacity
@@ -168,7 +179,6 @@ export default function HomeScreen({ navigation, route }) {
                 <Text style={styles.mainTitle}>Hôm nay bạn muốn{'\n'}đọc gì?</Text>
               </View>
               
-              {/* Nút Đăng xuất */}
               <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
                 <Ionicons name="log-out-outline" size={26} color="#C5532A" />
               </TouchableOpacity>
