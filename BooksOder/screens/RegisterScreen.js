@@ -1,81 +1,81 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState } from 'react';
-import { Alert, Text, TextInput, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { styles } from '../styles/RegisterScreenStyles';
 
 export default function RegisterScreen({ navigation }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const API_URL = 'http://192.168.101.105:3000';
 
   const handleRegister = async () => {
     if (!username || !password || !confirmPassword) {
-      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin!");
-      return;
+      return Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ các trường!');
     }
     if (password !== confirmPassword) {
-      Alert.alert("Lỗi", "Mật khẩu xác nhận không khớp!");
-      return;
+      return Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp!');
     }
 
+    setLoading(true);
     try {
-      // Lấy danh sách tài khoản cũ
-      const storedUsers = await AsyncStorage.getItem('users');
-      const users = storedUsers ? JSON.parse(storedUsers) : [];
+      const response = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      
+      const data = await response.json();
 
-      // Kiểm tra xem tên đăng nhập đã tồn tại chưa
-      const isExist = users.find(u => u.username === username);
-      if (isExist) {
-        Alert.alert("Lỗi", "Tên đăng nhập đã tồn tại!");
-        return;
+      if (response.ok) {
+        Alert.alert('Thành công 🎉', 'Đăng ký tài khoản thành công!', [
+          { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') }
+        ]);
+      } else {
+        Alert.alert('Đăng ký thất bại', data.message || 'Tài khoản đã tồn tại');
       }
-
-      // Thêm user mới vào mảng (role mặc định là 'user')
-      users.push({ username, password, role: 'user' });
-      await AsyncStorage.setItem('users', JSON.stringify(users));
-
-      Alert.alert("Thành công", "Đăng ký tài khoản thành công!", [
-        { text: "Đăng nhập ngay", onPress: () => navigation.goBack() }
-      ]);
     } catch (error) {
-      console.error(error);
+      Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Đăng Ký</Text>
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Tên đăng nhập"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Mật khẩu"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Xác nhận mật khẩu"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
+    <View style={styles.container}>
+      <Text style={styles.title}>Tạo tài khoản</Text>
+      <Text style={styles.subtitle}>Bắt đầu hành trình đọc sách của bạn</Text>
 
-      <TouchableOpacity style={styles.registerBtn} onPress={handleRegister}>
-        <Text style={styles.registerText}>Đăng ký</Text>
+      <View style={styles.inputContainer}>
+        <TextInput 
+          style={styles.input} placeholder="Tên đăng nhập" 
+          value={username} onChangeText={setUsername} autoCapitalize="none" 
+        />
+      </View>
+      <View style={styles.inputContainer}>
+        <TextInput 
+          style={styles.input} placeholder="Mật khẩu" 
+          value={password} onChangeText={setPassword} secureTextEntry 
+        />
+      </View>
+      <View style={styles.inputContainer}>
+        <TextInput 
+          style={styles.input} placeholder="Xác nhận mật khẩu" 
+          value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry 
+        />
+      </View>
+
+      <TouchableOpacity style={styles.btn} onPress={handleRegister} disabled={loading}>
+        {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>ĐĂNG KÝ</Text>}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.loginLink}>Đã có tài khoản? Đăng nhập ngay</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+      <View style={styles.linkContainer}>
+        <Text style={styles.linkText}>Đã có tài khoản?</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.linkHighlight}>Đăng nhập ngay</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }

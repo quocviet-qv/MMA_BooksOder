@@ -13,6 +13,7 @@ import CartScreen from './screens/CartScreen';
 import DetailScreen from './screens/DetailScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
 import HomeScreen from './screens/HomeScreen';
+import CheckoutScreen from './screens/CheckoutScreen'; // <-- Đã import màn hình Thanh toán mới
 
 // Import các màn hình Xác thực
 import LoginScreen from './screens/LoginScreen';
@@ -53,7 +54,6 @@ function MainTabs({ route }) {
 }
 
 // 2. Giao diện tạm thời cho Admin
-
 
 // 3. KHUNG ĐIỀU HƯỚNG CHÍNH (GLOBAL STACK)
 export default function App() {
@@ -127,6 +127,8 @@ export default function App() {
           <>
             <Stack.Screen name="Main" component={MainTabs} initialParams={{ setIsLoggedIn, setUserRole }} />
             <Stack.Screen name="Chi tiết" component={DetailScreen} options={{ headerShown: true }} />
+            {/* Đã thêm màn hình Checkout vào luồng User */}
+            <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ headerShown: true, title: 'Thanh toán' }} />
           </>
         )}
       </Stack.Navigator>

@@ -1,160 +1,134 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
-import {
-  Alert,
-  Image,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect } from 'react';
+// Đã gỡ SafeAreaView, chỉ dùng View và Platform
+import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, View, Platform } from 'react-native'; 
 
-// Import bộ style từ file riêng
 import { styles } from '../styles/DetailScreenStyles';
 
 export default function DetailScreen({ route, navigation }) {
-  const { book } = route.params; // Nhận dữ liệu sách truyền sang
+  const { book } = route.params;
+  const [isAdding, setIsAdding] = useState(false);
   const [isFav, setIsFav] = useState(false);
+  const [loadingFav, setLoadingFav] = useState(true);
 
-  // Kiểm tra trạng thái yêu thích mỗi khi mở màn hình này
-  useFocusEffect(
-    useCallback(() => {
-      checkFavoriteStatus();
-    }, [])
-  );
+  const userId = 'user123';
+  const API_URL = 'http://192.168.101.105:3000';
+
+  useEffect(() => {
+    checkFavoriteStatus();
+  }, []);
 
   const checkFavoriteStatus = async () => {
     try {
-      const storedFavs = await AsyncStorage.getItem('favorites');
-      if (storedFavs) {
-        const favList = JSON.parse(storedFavs);
-        setIsFav(favList.some((item) => item.id === book.id));
-      }
+      const response = await fetch(`${API_URL}/favorites/${userId}`);
+      const favorites = await response.json();
+      const isBookFavorited = favorites.some(fav => fav.bookId._id === book.id || fav.bookId === book.id);
+      setIsFav(isBookFavorited);
     } catch (error) {
-      console.error(error);
+      console.error('Lỗi tải trạng thái yêu thích:', error);
+    } finally {
+      setLoadingFav(false);
     }
   };
 
-  // 1. Hàm Thêm / Xóa Yêu thích
-  const toggleFavorite = async () => {
+  const handleToggleFavorite = async () => {
+    setIsFav(!isFav); 
     try {
-      const storedFavs = await AsyncStorage.getItem('favorites');
-      let favList = storedFavs ? JSON.parse(storedFavs) : [];
-
-      const isExist = favList.some((item) => item.id === book.id);
-      if (isExist) {
-        favList = favList.filter((item) => item.id !== book.id);
-        setIsFav(false);
-        Alert.alert('Thông báo', 'Đã xóa khỏi danh sách yêu thích!');
-      } else {
-        favList.push(book);
-        setIsFav(true);
-        Alert.alert('Thành công', 'Đã thêm vào danh sách yêu thích!');
+      const response = await fetch(`${API_URL}/favorites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, bookId: book.id })
+      });
+      if (!response.ok) {
+        setIsFav(!isFav); 
       }
-      await AsyncStorage.setItem('favorites', JSON.stringify(favList));
     } catch (error) {
       console.error(error);
+      setIsFav(!isFav); 
     }
   };
 
-  // 2. Hàm Thêm vào Giỏ hàng
-  const addToCart = async () => {
+  const handleAddToCart = async () => {
+    setIsAdding(true);
     try {
-      const savedCart = await AsyncStorage.getItem('cart');
-      let cartItems = savedCart ? JSON.parse(savedCart) : [];
+      const response = await fetch(`${API_URL}/cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userId, bookId: book.id, quantity: 1 })
+      });
 
-      const isExist = cartItems.find((item) => item.id === book.id);
-      
-      if (isExist) {
-        Alert.alert("Thông báo", "Cuốn sách này đã có trong giỏ hàng của bạn!");
+      if (response.ok) {
+        Alert.alert('Thành công', 'Đã thêm sách vào giỏ hàng!', [
+          { text: 'Tiếp tục mua sắm', style: 'cancel' },
+          { text: 'Đến Giỏ hàng', onPress: () => navigation.navigate('Main', { screen: 'Cart' }) }
+        ]);
       } else {
-        cartItems.push(book);
-        await AsyncStorage.setItem('cart', JSON.stringify(cartItems));
-        
-        Alert.alert(
-          "Thành công", 
-          "Đã thêm sách vào giỏ hàng!",
-          [
-            { text: "Tiếp tục xem", style: "cancel" },
-            { 
-              text: "Đến Giỏ hàng", 
-              onPress: () => navigation.navigate('Main', { screen: 'Cart' }) 
-            }
-          ]
-        );
+        Alert.alert('Lỗi', 'Không thể thêm vào giỏ hàng lúc này.');
       }
     } catch (error) {
-      console.error(error);
+      Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
+    } finally {
+      setIsAdding(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    // Dùng View bình thường thay vì SafeAreaView
+    <View style={styles.container}>
       <ScrollView 
         style={styles.scrollView} 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
       >
-        {/* Ảnh bìa sách */}
         <View style={styles.imageContainer}>
           <Image source={{ uri: book.coverImage }} style={styles.coverImage} />
         </View>
-
-        {/* Khung thông tin chi tiết */}
+        
         <View style={styles.infoContainer}>
           <View style={styles.topRow}>
             <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{book.category || 'Sách hay'}</Text>
+              <Text style={styles.categoryText}>{book.category}</Text>
             </View>
-            
-            {/* Nút thả tim trực tiếp ở trang chi tiết */}
-            <TouchableOpacity onPress={toggleFavorite} style={styles.favIconBtn}>
-              <Ionicons 
-                name={isFav ? "heart" : "heart-outline"} 
-                size={26} 
-                color={isFav ? "#E25842" : "#1A1A1A"} 
-              />
+            <TouchableOpacity style={styles.favIconBtn} onPress={handleToggleFavorite} disabled={loadingFav}>
+              <Ionicons name={isFav ? "heart" : "heart-outline"} size={26} color={isFav ? "#E25842" : "#999"} />
             </TouchableOpacity>
           </View>
           
           <Text style={styles.title}>{book.bookName}</Text>
           <Text style={styles.author}>Tác giả: {book.author}</Text>
-          <Text style={styles.price}>{book.price.toLocaleString('vi-VN')} đ</Text>
+          <Text style={styles.price}>{book.price?.toLocaleString('vi-VN')} đ</Text>
           
           <View style={styles.divider} />
           
           <Text style={styles.sectionTitle}>Giới thiệu nội dung</Text>
           <Text style={styles.description}>
-            Đây là một trong những cuốn sách đáng đọc nhất thuộc thể loại {book.category || 'này'}. 
-            Tác phẩm mang đến những góc nhìn mới mẻ, sâu sắc và để lại nhiều bài học giá trị cho người đọc.
+            Đây là một trong những cuốn sách tuyệt vời nhất thuộc thể loại {book.category}. 
+            Với những triết lý sâu sắc và bài học thực tế, tác phẩm của {book.author} chắc chắn sẽ mang lại cho bạn những giây phút đọc sách thú vị và bổ ích. Hãy thêm vào giỏ hàng để sở hữu ngay!
           </Text>
-
-          {/* Đánh giá & Phản hồi */}
-          <View style={styles.feedbackSection}>
-            <Text style={styles.sectionTitle}>Đánh giá & Phản hồi</Text>
-            <Text style={styles.feedbackText}>⭐️⭐️⭐️⭐️⭐️ (4.5/5) - Rất hay, đáng đọc!</Text>
-          </View>
         </View>
       </ScrollView>
 
-      {/* Thanh công cụ bên dưới */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.favOutlineBtn} onPress={toggleFavorite}>
-          <Ionicons 
-            name={isFav ? "heart" : "heart-outline"} 
-            size={24} 
-            color="#E25842" 
-          />
+      {/* Đẩy padding đáy lên 45px nếu là Android để né thanh điều hướng hệ thống */}
+      <View style={[styles.bottomBar, { paddingBottom: Platform.OS === 'android' ? 45 : 25 }]}>
+        <TouchableOpacity style={styles.favOutlineBtn} onPress={handleToggleFavorite} disabled={loadingFav}>
+          <Ionicons name={isFav ? "heart" : "heart-outline"} size={24} color="#E25842" />
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.addToCartBtn} onPress={addToCart}>
-          <Ionicons name="cart-outline" size={22} color="#FFF" style={styles.btnIcon} />
-          <Text style={styles.addToCartText}>Thêm vào giỏ hàng</Text>
+        
+        <TouchableOpacity 
+          style={styles.addToCartBtn} 
+          onPress={handleAddToCart} 
+          disabled={isAdding}
+        >
+          {isAdding ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <Ionicons name="cart" size={20} color="#FFF" style={styles.btnIcon} />
+              <Text style={styles.addToCartText}>Thêm vào giỏ</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
