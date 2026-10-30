@@ -3,15 +3,12 @@ import { View, Text, FlatList, Image, TouchableOpacity, Alert, ActivityIndicator
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Import bộ style từ file riêng
+import { API_URL, getCurrentUserId } from '../src/constants/api';
 import { styles } from '../styles/CartScreenStyles';
 
 export default function CartScreen({ navigation }) {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  const userId = 'user123'; 
-  const API_URL = 'http://192.168.101.105:3000'; 
 
   useFocusEffect(
     useCallback(() => {
@@ -22,9 +19,11 @@ export default function CartScreen({ navigation }) {
   const fetchCart = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/cart/${userId}`);
+      const uid = await getCurrentUserId();
+      const response = await fetch(`${API_URL}/cart/${uid}`);
       const data = await response.json();
-      setCartItems(data);
+      const validCart = (Array.isArray(data) ? data : []).filter(item => item && item.bookId);
+      setCartItems(validCart);
     } catch (error) {
       console.error(error);
       Alert.alert('Lỗi mạng', 'Không thể tải giỏ hàng từ Backend');
@@ -33,15 +32,57 @@ export default function CartScreen({ navigation }) {
     }
   };
 
+  const handleUpdateQuantity = async (cartItemId, newQuantity) => {
+    if (newQuantity <= 0) {
+      handleRemoveItem(cartItemId);
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/cart/${cartItemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: newQuantity })
+      });
+      if (response.ok) {
+        setCartItems(prev =>
+          prev.map(item => (item._id === cartItemId ? { ...item, quantity: newQuantity } : item))
+        );
+      }
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể cập nhật số lượng.');
+    }
+  };
+
+  const handleRemoveItem = (cartItemId) => {
+    Alert.alert('Xóa sản phẩm', 'Bạn muốn xóa cuốn sách này khỏi giỏ hàng?', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const response = await fetch(`${API_URL}/cart/${cartItemId}`, {
+              method: 'DELETE'
+            });
+            if (response.ok) {
+              setCartItems(prev => prev.filter(item => item._id !== cartItemId));
+            }
+          } catch (error) {
+            Alert.alert('Lỗi', 'Không thể xóa sản phẩm.');
+          }
+        }
+      }
+    ]);
+  };
+
   const totalAmount = cartItems.reduce((sum, item) => {
-    return sum + (item.bookId?.price * item.quantity);
+    return sum + ((item.bookId?.price || 0) * (item.quantity || 1));
   }, 0);
 
   const handleGoToCheckout = () => {
     if (cartItems.length === 0) {
       return Alert.alert('Thông báo', 'Giỏ hàng của bạn đang trống!');
     }
-    // Chuyển sang màn hình Checkout và truyền tổng tiền sang đó
     navigation.navigate('Checkout', { totalAmount });
   };
 
@@ -51,8 +92,42 @@ export default function CartScreen({ navigation }) {
       <View style={styles.itemInfo}>
         <Text style={styles.itemTitle} numberOfLines={2}>{item.bookId?.bookName}</Text>
         <Text style={styles.itemPrice}>{item.bookId?.price?.toLocaleString('vi-VN')} đ</Text>
-        <Text style={{ color: '#666', marginTop: 5 }}>Số lượng: {item.quantity}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+          <TouchableOpacity
+            onPress={() => handleUpdateQuantity(item._id, item.quantity - 1)}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: '#EBE4DA',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            <Ionicons name="remove" size={16} color="#1A1A1A" />
+          </TouchableOpacity>
+          <Text style={{ marginHorizontal: 12, fontSize: 15, fontWeight: '600', color: '#1A1A1A' }}>
+            {item.quantity}
+          </Text>
+          <TouchableOpacity
+            onPress={() => handleUpdateQuantity(item._id, item.quantity + 1)}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: '#EBE4DA',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            <Ionicons name="add" size={16} color="#1A1A1A" />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveItem(item._id)}>
+        <Ionicons name="trash-outline" size={22} color="#E25842" />
+      </TouchableOpacity>
     </View>
   );
 

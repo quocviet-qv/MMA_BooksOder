@@ -3,16 +3,14 @@ import { View, Text, FlatList, Image, TouchableOpacity, Alert, ActivityIndicator
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { API_URL, getCurrentUserId } from '../src/constants/api';
 import { styles } from '../styles/FavoritesScreenStyles';
 
 export default function FavoritesScreen({ navigation }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState('user123');
 
-  const userId = 'user123';
-  const API_URL = 'http://192.168.101.105:3000';
-
-  // Tự động fetch lại dữ liệu mỗi khi người dùng bấm vào Tab Yêu thích
   useFocusEffect(
     useCallback(() => {
       fetchFavorites();
@@ -22,9 +20,12 @@ export default function FavoritesScreen({ navigation }) {
   const fetchFavorites = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/favorites/${userId}`);
+      const uid = await getCurrentUserId();
+      setUserId(uid);
+      const response = await fetch(`${API_URL}/favorites/${uid}`);
       const data = await response.json();
-      setFavorites(data);
+      const validFavs = (Array.isArray(data) ? data : []).filter(fav => fav && fav.bookId);
+      setFavorites(validFavs);
     } catch (error) {
       console.error(error);
       Alert.alert('Lỗi mạng', 'Không thể tải danh sách yêu thích');
@@ -42,8 +43,7 @@ export default function FavoritesScreen({ navigation }) {
       });
 
       if (response.ok) {
-        // Cập nhật lại danh sách trên màn hình ngay lập tức để tạo cảm giác mượt mà
-        setFavorites(prevFavs => prevFavs.filter(fav => fav.bookId._id !== bookId));
+        setFavorites(prevFavs => prevFavs.filter(fav => fav.bookId && fav.bookId._id !== bookId));
       }
     } catch (error) {
       Alert.alert('Lỗi', 'Không thể xóa khỏi danh sách yêu thích');
@@ -57,7 +57,6 @@ export default function FavoritesScreen({ navigation }) {
     return (
       <TouchableOpacity 
         style={styles.card}
-        // Chuyển sang màn hình Chi tiết và ghép lại id để đồng bộ với định dạng cũ
         onPress={() => navigation.navigate('Chi tiết', { book: { ...book, id: book._id } })}
       >
         <Image source={{ uri: book.coverImage }} style={styles.coverImage} />
@@ -109,8 +108,8 @@ export default function FavoritesScreen({ navigation }) {
           data={favorites}
           keyExtractor={item => item._id}
           renderItem={renderItem}
-          numColumns={2} // Hiển thị 2 cột
-          columnWrapperStyle={styles.row} // Căn đều 2 cột theo CSS
+          numColumns={2}
+          columnWrapperStyle={styles.row}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 20 }}
         />

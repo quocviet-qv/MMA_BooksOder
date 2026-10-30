@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { styles } from '../styles/RegisterScreenStyles';
+import { API_URL } from '../src/constants/api';
 
 export default function RegisterScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -8,10 +9,8 @@ export default function RegisterScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://192.168.101.105:3000';
-
   const handleRegister = async () => {
-    if (!username || !password || !confirmPassword) {
+    if (!username.trim() || !password || !confirmPassword) {
       return Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ các trường!');
     }
     if (password !== confirmPassword) {
@@ -23,7 +22,7 @@ export default function RegisterScreen({ navigation }) {
       const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: username.trim(), password })
       });
       
       const data = await response.json();

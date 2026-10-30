@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-// Đã dùng View bình thường thay vì SafeAreaView
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Image } from 'react-native';
 
-// Import bộ style của bạn
+import { API_URL } from '../src/constants/api';
 import { styles } from '../styles/AdminFormScreenStyles'; 
 
+const DEFAULT_COVER = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=600&q=80';
+
 export default function AdminFormScreen({ route, navigation }) {
-  // Lấy dữ liệu sách từ route (nếu là chế độ Sửa)
   const book = route.params?.book;
   const isEdit = !!book;
 
@@ -19,15 +19,18 @@ export default function AdminFormScreen({ route, navigation }) {
   });
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://192.168.101.105:3000';
-
   const handleChange = (name, value) => {
     setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async () => {
-    if (!formData.bookName || !formData.price || !formData.category) {
-      return Alert.alert('Lỗi', 'Vui lòng nhập đủ Tên sách, Giá và Thể loại!');
+    if (!formData.bookName.trim() || !formData.author.trim() || !formData.price.trim() || !formData.category.trim()) {
+      return Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ Tên sách, Tác giả, Giá tiền và Thể loại!');
+    }
+
+    const numericPrice = Number(formData.price);
+    if (isNaN(numericPrice) || numericPrice < 0) {
+      return Alert.alert('Lỗi', 'Giá tiền không hợp lệ!');
     }
 
     setLoading(true);
@@ -39,8 +42,11 @@ export default function AdminFormScreen({ route, navigation }) {
         method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          price: Number(formData.price)
+          bookName: formData.bookName.trim(),
+          author: formData.author.trim(),
+          price: numericPrice,
+          category: formData.category.trim(),
+          coverImage: formData.coverImage.trim() || DEFAULT_COVER
         })
       });
 
@@ -70,7 +76,7 @@ export default function AdminFormScreen({ route, navigation }) {
           placeholder="Nhập tên sách..." 
         />
 
-        <Text style={styles.label}>Tác giả</Text>
+        <Text style={styles.label}>Tác giả (*)</Text>
         <TextInput 
           style={styles.input} 
           value={formData.author} 
@@ -92,7 +98,7 @@ export default function AdminFormScreen({ route, navigation }) {
           style={styles.input} 
           value={formData.category} 
           onChangeText={(text) => handleChange('category', text)} 
-          placeholder="Tiểu thuyết, Khoa học..." 
+          placeholder="Tiểu thuyết, Kỹ năng sống, Khoa học..." 
         />
 
         <Text style={styles.label}>Link ảnh bìa (URL)</Text>
@@ -100,10 +106,9 @@ export default function AdminFormScreen({ route, navigation }) {
           style={styles.input} 
           value={formData.coverImage} 
           onChangeText={(text) => handleChange('coverImage', text)} 
-          placeholder="https://..." 
+          placeholder="https://... (để trống sẽ dùng ảnh mặc định)" 
         />
 
-        {/* Khung hiển thị trước ảnh bìa theo class imagePreview của bạn */}
         {formData.coverImage ? (
           <Image source={{ uri: formData.coverImage }} style={styles.imagePreview} />
         ) : null}

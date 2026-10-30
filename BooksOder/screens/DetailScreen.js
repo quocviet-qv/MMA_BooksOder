@@ -1,28 +1,35 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
-// Đã gỡ SafeAreaView, chỉ dùng View và Platform
 import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, View, Platform } from 'react-native'; 
 
+import { API_URL, getCurrentUserId } from '../src/constants/api';
 import { styles } from '../styles/DetailScreenStyles';
 
 export default function DetailScreen({ route, navigation }) {
   const { book } = route.params;
+  const bookId = (book.id || book._id).toString();
   const [isAdding, setIsAdding] = useState(false);
   const [isFav, setIsFav] = useState(false);
   const [loadingFav, setLoadingFav] = useState(true);
-
-  const userId = 'user123';
-  const API_URL = 'http://192.168.101.105:3000';
+  const [userId, setUserId] = useState('user123');
 
   useEffect(() => {
-    checkFavoriteStatus();
+    initData();
   }, []);
 
-  const checkFavoriteStatus = async () => {
+  const initData = async () => {
+    const uid = await getCurrentUserId();
+    setUserId(uid);
+    await checkFavoriteStatus(uid);
+  };
+
+  const checkFavoriteStatus = async (uid) => {
     try {
-      const response = await fetch(`${API_URL}/favorites/${userId}`);
+      const response = await fetch(`${API_URL}/favorites/${uid}`);
       const favorites = await response.json();
-      const isBookFavorited = favorites.some(fav => fav.bookId._id === book.id || fav.bookId === book.id);
+      const isBookFavorited = (Array.isArray(favorites) ? favorites : [])
+        .filter(fav => fav && fav.bookId)
+        .some(fav => (fav.bookId._id || fav.bookId).toString() === bookId);
       setIsFav(isBookFavorited);
     } catch (error) {
       console.error('Lỗi tải trạng thái yêu thích:', error);
@@ -32,29 +39,31 @@ export default function DetailScreen({ route, navigation }) {
   };
 
   const handleToggleFavorite = async () => {
-    setIsFav(!isFav); 
+    const nextFav = !isFav;
+    setIsFav(nextFav);
     try {
       const response = await fetch(`${API_URL}/favorites`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, bookId: book.id })
+        body: JSON.stringify({ userId, bookId })
       });
       if (!response.ok) {
-        setIsFav(!isFav); 
+        setIsFav(!nextFav);
       }
     } catch (error) {
       console.error(error);
-      setIsFav(!isFav); 
+      setIsFav(!nextFav);
     }
   };
 
   const handleAddToCart = async () => {
     setIsAdding(true);
     try {
+      const uid = await getCurrentUserId();
       const response = await fetch(`${API_URL}/cart`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userId, bookId: book.id, quantity: 1 })
+        body: JSON.stringify({ userId: uid, bookId, quantity: 1 })
       });
 
       if (response.ok) {
@@ -73,7 +82,6 @@ export default function DetailScreen({ route, navigation }) {
   };
 
   return (
-    // Dùng View bình thường thay vì SafeAreaView
     <View style={styles.container}>
       <ScrollView 
         style={styles.scrollView} 
@@ -108,7 +116,6 @@ export default function DetailScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Đẩy padding đáy lên 45px nếu là Android để né thanh điều hướng hệ thống */}
       <View style={[styles.bottomBar, { paddingBottom: Platform.OS === 'android' ? 45 : 25 }]}>
         <TouchableOpacity style={styles.favOutlineBtn} onPress={handleToggleFavorite} disabled={loadingFav}>
           <Ionicons name={isFav ? "heart" : "heart-outline"} size={24} color="#E25842" />

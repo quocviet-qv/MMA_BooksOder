@@ -2,20 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
-// Đã xóa SafeAreaView khỏi import
 import { ActivityIndicator, Alert, FlatList, Image, Text, TouchableOpacity, View } from 'react-native';
 
-// Import style CSS của bạn
+import { API_URL } from '../src/constants/api';
 import { styles } from '../styles/AdminScreenStyles';
 
-export default function AdminScreen({ navigation, route }) {
-  const { setIsLoggedIn, setUserRole } = route.params || {};
+export default function AdminScreen({ navigation, route, onLogout }) {
+  const { setIsLoggedIn, setUserRole } = route?.params || {};
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = 'http://192.168.101.105:3000';
-
-  // Tự động tải lại danh sách sách mỗi khi quay lại màn hình này
   useFocusEffect(
     useCallback(() => {
       fetchBooks();
@@ -27,7 +23,7 @@ export default function AdminScreen({ navigation, route }) {
     try {
       const response = await fetch(`${API_URL}/books`);
       const data = await response.json();
-      setBooks(data);
+      setBooks(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error(error);
       Alert.alert('Lỗi', 'Không thể tải danh sách sách.');
@@ -43,9 +39,13 @@ export default function AdminScreen({ navigation, route }) {
         text: "Đăng xuất", 
         style: "destructive",
         onPress: async () => {
-          await AsyncStorage.multiRemove(['userToken', 'userRole']);
-          setUserRole?.(null);
-          setIsLoggedIn?.(false);
+          if (onLogout) {
+            await onLogout();
+          } else {
+            await AsyncStorage.multiRemove(['userToken', 'userRole', 'userId']);
+            setUserRole?.(null);
+            setIsLoggedIn?.(false);
+          }
         }
       }
     ]);
@@ -64,7 +64,7 @@ export default function AdminScreen({ navigation, route }) {
             });
             if (response.ok) {
               Alert.alert('Thành công', 'Đã xóa sách.');
-              fetchBooks(); // Tải lại danh sách sau khi xóa
+              fetchBooks();
             } else {
               Alert.alert('Lỗi', 'Xóa sách thất bại.');
             }
@@ -78,7 +78,6 @@ export default function AdminScreen({ navigation, route }) {
 
   const renderItem = ({ item }) => (
     <View style={styles.bookItem}>
-      {/* Hiển thị ảnh bìa hoặc một khối màu xám nếu mất link ảnh */}
       {item.coverImage ? (
         <Image source={{ uri: item.coverImage }} style={styles.bookImage} />
       ) : (
@@ -91,7 +90,6 @@ export default function AdminScreen({ navigation, route }) {
       </View>
 
       <View style={styles.actionButtons}>
-        {/* Nút Sửa */}
         <TouchableOpacity 
           style={styles.actionBtn}
           onPress={() => navigation.navigate('AdminForm', { book: item })}
@@ -99,7 +97,6 @@ export default function AdminScreen({ navigation, route }) {
           <Ionicons name="pencil" size={20} color="#4A90E2" />
         </TouchableOpacity>
         
-        {/* Nút Xóa */}
         <TouchableOpacity 
           style={styles.actionBtn}
           onPress={() => handleDelete(item._id || item.id)}
@@ -111,7 +108,6 @@ export default function AdminScreen({ navigation, route }) {
   );
 
   return (
-    // Đã thay thẻ SafeAreaView bằng thẻ View bình thường
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Quản lý sách</Text>

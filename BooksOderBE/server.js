@@ -7,7 +7,7 @@ const Book = require('./models/Book');
 const Favorite = require('./models/Favorite');
 const Cart = require('./models/Cart');
 const Order = require('./models/Order');
-const User = require('./models/User'); // Nhớ trỏ đúng đường dẫn tới file User.js vừa tạo
+const User = require('./models/User');
 
 const app = express();
 app.use(cors());
@@ -18,13 +18,20 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ Đã kết nối thành công với MongoDB (BookStoreDB)'))
   .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
-// 2. API Lấy danh sách Sách (GET)
+const PORT = process.env.PORT || 3000;
+
+// ==========================================
+// 📚 API SÁCH (BOOKS)
+// ==========================================
+
+// 1. Lấy danh sách Sách (GET)
 app.get('/books', async (req, res) => {
   try {
     const books = await Book.find().sort({ createdAt: -1 });
     // Format lại _id thành id cho React Native dễ xử lý
     const formattedBooks = books.map(book => ({
       id: book._id.toString(),
+      _id: book._id.toString(),
       bookName: book.bookName,
       author: book.author,
       price: book.price,
@@ -37,29 +44,69 @@ app.get('/books', async (req, res) => {
   }
 });
 
-// 3. API Thêm Sách mới (POST)
+// 2. Thêm Sách mới (POST)
 app.post('/books', async (req, res) => {
   try {
-    const newBook = new Book(req.body);
+    const { bookName, author, price, category, coverImage } = req.body;
+    const newBook = new Book({ bookName, author, price, category, coverImage });
     await newBook.save();
-    res.status(201).json(newBook);
+    res.status(201).json({ message: 'Thêm sách thành công', newBook });
   } catch (error) {
-    res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
+    console.error('Lỗi thêm sách:', error);
+    res.status(500).json({ message: 'Lỗi server khi thêm sách', error });
   }
 });
 
-// 4. Khởi chạy Server
-const PORT = process.env.PORT || 3000;
+// 3. Cập nhật Sách (PUT)
+app.put('/books/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedData = req.body;
+    const updatedBook = await Book.findByIdAndUpdate(id, updatedData, { new: true });
+    
+    if (!updatedBook) {
+      return res.status(404).json({ message: 'Không tìm thấy sách' });
+    }
+    
+    res.status(200).json({ message: 'Cập nhật thành công', updatedBook });
+  } catch (error) {
+    console.error('Lỗi sửa sách:', error);
+    res.status(500).json({ message: 'Lỗi server khi cập nhật', error });
+  }
+});
+
+// 4. Xóa Sách (DELETE) - Xóa luôn các tham chiếu trong Cart & Favorite
+app.delete('/books/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedBook = await Book.findByIdAndDelete(id);
+    
+    if (!deletedBook) {
+      return res.status(404).json({ message: 'Không tìm thấy sách' });
+    }
+
+    // Dọn dẹp giỏ hàng và danh sách yêu thích có chứa sách đã xóa
+    await Cart.deleteMany({ bookId: id });
+    await Favorite.deleteMany({ bookId: id });
+    
+    res.status(200).json({ message: 'Xóa sách thành công' });
+  } catch (error) {
+    console.error('Lỗi xóa sách:', error);
+    res.status(500).json({ message: 'Lỗi server khi xóa', error });
+  }
+});
+
 // ==========================================
-// 🛒 API GIỎ HÀNG
+// 🛒 API GIỎ HÀNG (CART)
 // ==========================================
 
 // 1. Lấy giỏ hàng của user
 app.get('/cart/:userId', async (req, res) => {
   try {
-    // .populate('bookId') sẽ tự động nhúng toàn bộ thông tin sách vào kết quả trả về
     const cart = await Cart.find({ userId: req.params.userId }).populate('bookId');
-    res.json(cart);
+    // Lọc bỏ những sản phẩm mà sách gốc không còn tồn tại trong DB
+    const validCart = cart.filter(item => item.bookId !== null);
+    res.json(validCart);
   } catch (error) {
     res.status(500).json({ error: 'Lỗi server' });
   }
@@ -72,11 +119,13 @@ app.post('/cart', async (req, res) => {
     let cartItem = await Cart.findOne({ userId, bookId });
     
     if (cartItem) {
-      // Nếu đã có trong giỏ, cộng dồn số lượng
       cartItem.quantity += quantity;
+      if (cartItem.quantity <= 0) {
+        await Cart.findByIdAndDelete(cartItem._id);
+        return res.json({ message: 'Đã xóa khỏi giỏ hàng', deleted: true });
+      }
       await cartItem.save();
-    } else {
-      // Nếu chưa có, tạo mới
+    } else if (quantity > 0) {
       cartItem = new Cart({ userId, bookId, quantity });
       await cartItem.save();
     }
@@ -86,15 +135,51 @@ app.post('/cart', async (req, res) => {
   }
 });
 
+// 3. Cập nhật số lượng trực tiếp trong giỏ (PUT)
+app.put('/cart/:id', async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    if (quantity <= 0) {
+      await Cart.findByIdAndDelete(req.params.id);
+      return res.json({ message: 'Đã xóa khỏi giỏ hàng', deleted: true });
+    }
+    const updatedItem = await Cart.findByIdAndUpdate(
+      req.params.id,
+      { quantity },
+      { new: true }
+    ).populate('bookId');
+    if (!updatedItem) {
+      return res.status(404).json({ message: 'Không tìm thấy sản phẩm trong giỏ' });
+    }
+    res.json(updatedItem);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi server khi cập nhật giỏ hàng' });
+  }
+});
+
+// 4. Xóa một sản phẩm khỏi giỏ hàng (DELETE)
+app.delete('/cart/:id', async (req, res) => {
+  try {
+    const deleted = await Cart.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Không tìm thấy sản phẩm trong giỏ' });
+    }
+    res.json({ message: 'Đã xóa sản phẩm khỏi giỏ hàng' });
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi server khi xóa sản phẩm khỏi giỏ' });
+  }
+});
+
 // ==========================================
-// ❤️ API YÊU THÍCH
+// ❤️ API YÊU THÍCH (FAVORITES)
 // ==========================================
 
 // 1. Lấy danh sách yêu thích của user
 app.get('/favorites/:userId', async (req, res) => {
   try {
     const favorites = await Favorite.find({ userId: req.params.userId }).populate('bookId');
-    res.json(favorites);
+    const validFavorites = favorites.filter(fav => fav.bookId !== null);
+    res.json(validFavorites);
   } catch (error) {
     res.status(500).json({ error: 'Lỗi server' });
   }
@@ -106,7 +191,6 @@ app.post('/favorites', async (req, res) => {
   try {
     const existingFav = await Favorite.findOne({ userId, bookId });
     
-    // Nếu đang yêu thích thì Xóa, nếu chưa thì Thêm
     if (existingFav) {
       await Favorite.findByIdAndDelete(existingFav._id);
       return res.json({ message: 'Đã xóa khỏi danh sách yêu thích', status: 'removed' });
@@ -128,16 +212,15 @@ app.post('/favorites', async (req, res) => {
 app.post('/checkout', async (req, res) => {
   const { userId, address } = req.body;
   try {
-    // Bước 1: Lấy toàn bộ sách trong giỏ hàng của user này
     const cartItems = await Cart.find({ userId }).populate('bookId');
+    const validCartItems = cartItems.filter(item => item.bookId !== null);
     
-    if (cartItems.length === 0) {
+    if (validCartItems.length === 0) {
       return res.status(400).json({ message: 'Giỏ hàng của bạn đang trống' });
     }
 
-    // Bước 2: Tính tổng tiền và trích xuất dữ liệu lưu vào đơn hàng
     let totalAmount = 0;
-    const orderItems = cartItems.map(item => {
+    const orderItems = validCartItems.map(item => {
       totalAmount += item.bookId.price * item.quantity;
       return {
         bookId: item.bookId._id,
@@ -146,7 +229,6 @@ app.post('/checkout', async (req, res) => {
       };
     });
 
-    // Bước 3: Tạo đơn hàng mới lưu vào DB
     const newOrder = new Order({
       userId,
       items: orderItems,
@@ -155,7 +237,7 @@ app.post('/checkout', async (req, res) => {
     });
     await newOrder.save();
 
-    // Bước 4: Xóa toàn bộ giỏ hàng của user sau khi đặt thành công
+    // Xóa toàn bộ giỏ hàng của user sau khi đặt thành công
     await Cart.deleteMany({ userId });
 
     res.status(201).json({ message: 'Đặt hàng thành công', order: newOrder });
@@ -168,8 +250,8 @@ app.post('/checkout', async (req, res) => {
 app.get('/orders/:userId', async (req, res) => {
   try {
     const orders = await Order.find({ userId: req.params.userId })
-                              .populate('items.bookId') // Nhúng thông tin sách vào lịch sử
-                              .sort({ createdAt: -1 }); // Đơn mới nhất lên đầu
+                              .populate('items.bookId')
+                              .sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     res.status(500).json({ error: 'Lỗi server' });
@@ -177,25 +259,24 @@ app.get('/orders/:userId', async (req, res) => {
 });
 
 // ==========================================
+// 🔐 API XÁC THỰC (AUTH)
 // ==========================================
-// API ĐĂNG KÝ TÀI KHOẢN (Đã thêm mẹo tạo Admin)
-// ==========================================
+
+// 1. Đăng ký tài khoản
 app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Kiểm tra xem user đã tồn tại chưa
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ message: 'Tài khoản này đã tồn tại!' });
     }
 
-    // TỰ ĐỘNG CẤP QUYỀN: Nếu username là "admin" thì set role là "admin", ngược lại là "user"
     const userRole = username.toLowerCase() === 'admin' ? 'admin' : 'user';
 
     const newUser = new User({ 
-      username: username, 
-      password: password,
+      username, 
+      password,
       role: userRole 
     });
     
@@ -208,93 +289,26 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// ==========================================
-// API ĐĂNG NHẬP
-// ==========================================
+// 2. Đăng nhập
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Tìm user theo username
     const user = await User.findOne({ username });
     
-    // Nếu không thấy user HOẶC sai mật khẩu
     if (!user || user.password !== password) {
       return res.status(400).json({ message: 'Sai tài khoản hoặc mật khẩu' });
     }
 
-    // Đăng nhập thành công, trả về thông tin để Frontend lưu vào AsyncStorage
     res.status(200).json({
       message: 'Đăng nhập thành công',
-      token: 'fake-jwt-token-' + user._id, // Thực tế sẽ dùng thư viện jsonwebtoken (JWT)
+      token: 'fake-jwt-token-' + user._id,
       role: user.role,
-      userId: user._id
+      userId: user._id.toString()
     });
   } catch (error) {
     console.error('Lỗi đăng nhập:', error);
     res.status(500).json({ message: 'Lỗi server', error });
-  }
-});
-
-// ==========================================
-// 1. API THÊM SÁCH MỚI (POST)
-// ==========================================
-app.post('/books', async (req, res) => {
-  try {
-    // Lấy dữ liệu từ form AdminFormScreen gửi lên
-    const { bookName, author, price, category, coverImage } = req.body;
-    
-    // Tạo record mới và lưu vào MongoDB
-    const newBook = new Book({ bookName, author, price, category, coverImage });
-    await newBook.save();
-    
-    res.status(201).json({ message: 'Thêm sách thành công', newBook });
-  } catch (error) {
-    console.error('Lỗi thêm sách:', error);
-    res.status(500).json({ message: 'Lỗi server khi thêm sách', error });
-  }
-});
-
-// ==========================================
-// 2. API CẬP NHẬT SÁCH (PUT)
-// ==========================================
-app.put('/books/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updatedData = req.body;
-    
-    // Tìm sách theo ID và cập nhật data mới (new: true để trả về data sau khi update)
-    const updatedBook = await Book.findByIdAndUpdate(id, updatedData, { new: true });
-    
-    if (!updatedBook) {
-      return res.status(404).json({ message: 'Không tìm thấy sách' });
-    }
-    
-    res.status(200).json({ message: 'Cập nhật thành công', updatedBook });
-  } catch (error) {
-    console.error('Lỗi sửa sách:', error);
-    res.status(500).json({ message: 'Lỗi server khi cập nhật', error });
-  }
-});
-
-// ==========================================
-// 3. API XÓA SÁCH (DELETE)
-// ==========================================
-app.delete('/books/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Tìm và xóa sách khỏi MongoDB
-    const deletedBook = await Book.findByIdAndDelete(id);
-    
-    if (!deletedBook) {
-      return res.status(404).json({ message: 'Không tìm thấy sách' });
-    }
-    
-    res.status(200).json({ message: 'Xóa sách thành công' });
-  } catch (error) {
-    console.error('Lỗi xóa sách:', error);
-    res.status(500).json({ message: 'Lỗi server khi xóa', error });
   }
 });
 

@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 
-// Import bộ style từ file riêng
+import { API_URL, getCurrentUserId } from '../src/constants/api';
 import { styles } from '../styles/CheckoutScreenStyles';
 
 export default function CheckoutScreen({ route, navigation }) {
-  // Nhận tổng tiền từ màn hình Giỏ hàng truyền sang
-  const { totalAmount } = route.params; 
+  const { totalAmount = 0 } = route.params || {}; 
   const [address, setAddress] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-
-  const userId = 'user123';
-  const API_URL = 'http://192.168.101.105:3000';
 
   const handlePayment = async () => {
     if (!address.trim()) {
@@ -20,10 +16,11 @@ export default function CheckoutScreen({ route, navigation }) {
 
     setIsProcessing(true);
     try {
+      const userId = await getCurrentUserId();
       const response = await fetch(`${API_URL}/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, address })
+        body: JSON.stringify({ userId, address: address.trim() })
       });
 
       const data = await response.json();

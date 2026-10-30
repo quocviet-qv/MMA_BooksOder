@@ -1,24 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Import bộ style từ file riêng
+import { API_URL, getCurrentUserId } from '../src/constants/api';
 import { styles } from '../styles/HomeScreenStyles';
 
-export default function HomeScreen({ navigation, route }) {
-  const { setIsLoggedIn, setUserRole } = route.params || {};
+export default function HomeScreen({ navigation, route, onLogout }) {
+  const { setIsLoggedIn, setUserRole } = route?.params || {};
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('Tất cả');
   const [activeSort, setActiveSort] = useState('Bán chạy');
   const [searchQuery, setSearchQuery] = useState('');
-  const [favorites, setFavorites] = useState([]); // Mảng chứa ID các sách đã thích
-
-  const userId = 'user123';
-  const API_URL = 'http://192.168.101.105:3000';
+  const [favorites, setFavorites] = useState([]);
+  const [userId, setUserId] = useState('user123');
 
   const handleLogout = () => {
     Alert.alert("Xác nhận", "Bạn có chắc chắn muốn đăng xuất?", [
@@ -28,9 +26,13 @@ export default function HomeScreen({ navigation, route }) {
         style: "destructive",
         onPress: async () => {
           try {
-            await AsyncStorage.multiRemove(['userToken', 'userRole']);
-            setUserRole?.(null);
-            setIsLoggedIn?.(false);
+            if (onLogout) {
+              await onLogout();
+            } else {
+              await AsyncStorage.multiRemove(['userToken', 'userRole', 'userId']);
+              setUserRole?.(null);
+              setIsLoggedIn?.(false);
+            }
           } catch (error) {
             console.error('Không thể đăng xuất:', error);
             Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
@@ -40,33 +42,49 @@ export default function HomeScreen({ navigation, route }) {
     ]);
   };
 
-  // Gọi API lấy danh sách sách
-  useEffect(() => {
-    fetch(`${API_URL}/books`)
-      .then((response) => response.json())
-      .then((data) => {
-        setBooks(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error(error);
-        setLoading(false);
-      });
-  }, []);
-
-  // Tự động tải lại danh sách yêu thích từ API mỗi khi quay lại trang chủ
+  // Tự động tải lại sách và danh sách yêu thích mỗi khi vào Trang chủ
   useFocusEffect(
     useCallback(() => {
-      fetchFavorites();
+      loadHomeData();
     }, [])
   );
 
-  const fetchFavorites = async () => {
+  const loadHomeData = async () => {
+    const currentId = await getCurrentUserId();
+    setUserId(currentId);
+
     try {
-      const response = await fetch(`${API_URL}/favorites/${userId}`);
+      const [booksRes, favRes] = await Promise.all([
+        fetch(`${API_URL}/books`),
+        fetch(`${API_URL}/favorites/${currentId}`)
+      ]);
+
+      if (booksRes.ok) {
+        const booksData = await booksRes.json();
+        setBooks(Array.isArray(booksData) ? booksData : []);
+      }
+
+      if (favRes.ok) {
+        const favData = await favRes.json();
+        const favIds = (Array.isArray(favData) ? favData : [])
+          .filter(fav => fav && fav.bookId)
+          .map(fav => (fav.bookId._id || fav.bookId).toString());
+        setFavorites(favIds);
+      }
+    } catch (error) {
+      console.error('Lỗi tải dữ liệu trang chủ:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchFavorites = async (uid = userId) => {
+    try {
+      const response = await fetch(`${API_URL}/favorites/${uid}`);
       const data = await response.json();
-      // Trích xuất ID sách để dễ dàng kiểm tra ở hàm render
-      const favIds = data.map(fav => fav.bookId._id || fav.bookId);
+      const favIds = (Array.isArray(data) ? data : [])
+        .filter(fav => fav && fav.bookId)
+        .map(fav => (fav.bookId._id || fav.bookId).toString());
       setFavorites(favIds);
     } catch (error) {
       console.error('Lỗi tải danh sách yêu thích:', error);
@@ -75,60 +93,59 @@ export default function HomeScreen({ navigation, route }) {
 
   // Hàm xử lý Thêm/Xóa khỏi danh sách yêu thích qua API
   const toggleFavorite = async (book) => {
-    // Đảo trạng thái trên UI ngay lập tức cho mượt
-    const isExist = favorites.includes(book.id);
+    const bookId = (book.id || book._id).toString();
+    const isExist = favorites.includes(bookId);
     if (isExist) {
-      setFavorites(favorites.filter(id => id !== book.id));
+      setFavorites(favorites.filter(id => id !== bookId));
     } else {
-      setFavorites([...favorites, book.id]);
+      setFavorites([...favorites, bookId]);
     }
 
-    // Gọi API lưu vào DB
     try {
       const response = await fetch(`${API_URL}/favorites`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, bookId: book.id })
+        body: JSON.stringify({ userId, bookId })
       });
       
-      // Nếu API lỗi, tự động fetch lại để đồng bộ với server
       if (!response.ok) {
-        fetchFavorites();
+        fetchFavorites(userId);
       }
     } catch (error) {
       console.error(error);
-      fetchFavorites();
+      fetchFavorites(userId);
     }
   };
 
   const categories = ['Tất cả', 'Tiểu thuyết', 'Kỹ năng sống', 'Khoa học'];
   const sorts = ['Bán chạy', 'Giá thấp', 'Giá cao'];
 
-  // Lọc sách theo danh mục và từ khóa tìm kiếm
+  // Lọc sách theo danh mục và từ khóa tìm kiếm (bảo vệ null/undefined)
   let displayBooks = books.filter(book => {
     const matchCategory = activeCategory === 'Tất cả' || book.category === activeCategory;
     const keyword = searchQuery.toLowerCase();
-    const matchSearch = book.bookName.toLowerCase().includes(keyword) || 
-                        book.author.toLowerCase().includes(keyword);
+    const bookName = (book.bookName || '').toLowerCase();
+    const author = (book.author || '').toLowerCase();
+    const matchSearch = bookName.includes(keyword) || author.includes(keyword);
 
     return matchCategory && matchSearch;
   });
 
   // Sắp xếp sách theo giá
   if (activeSort === 'Giá thấp') {
-    displayBooks.sort((a, b) => a.price - b.price);
+    displayBooks.sort((a, b) => (a.price || 0) - (b.price || 0));
   } else if (activeSort === 'Giá cao') {
-    displayBooks.sort((a, b) => b.price - a.price);
+    displayBooks.sort((a, b) => (b.price || 0) - (a.price || 0));
   }
 
   const renderBookItem = ({ item }) => {
-    // Kiểm tra xem ID sách có nằm trong danh sách yêu thích từ API không
-    const isFav = favorites.includes(item.id);
+    const itemId = (item.id || item._id).toString();
+    const isFav = favorites.includes(itemId);
 
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => navigation.navigate('Chi tiết', { book: item })}
+        onPress={() => navigation.navigate('Chi tiết', { book: { ...item, id: itemId } })}
       >
         <Image source={{ uri: item.coverImage }} style={styles.coverImage} />
         
@@ -149,7 +166,7 @@ export default function HomeScreen({ navigation, route }) {
 
         <View style={styles.bookInfo}>
           <Text style={styles.bookTitle} numberOfLines={1}>{item.bookName}</Text>
-          <Text style={styles.bookPrice}>{item.price.toLocaleString('vi-VN')} đ</Text>
+          <Text style={styles.bookPrice}>{(item.price || 0).toLocaleString('vi-VN')} đ</Text>
         </View>
       </TouchableOpacity>
     );
@@ -158,7 +175,7 @@ export default function HomeScreen({ navigation, route }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" color="#C5532A" />
       </View>
     );
   }
@@ -167,7 +184,7 @@ export default function HomeScreen({ navigation, route }) {
     <SafeAreaView style={styles.container}>
       <FlatList
         data={displayBooks}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => (item.id || item._id).toString()}
         numColumns={2}
         columnWrapperStyle={styles.row}
         showsVerticalScrollIndicator={false}
