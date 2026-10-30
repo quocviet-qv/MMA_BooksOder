@@ -1,10 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Image } from 'react-native';
 
 import { API_URL } from '../src/constants/api';
 import { styles } from '../styles/AdminFormScreenStyles'; 
-
-const DEFAULT_COVER = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=600&q=80';
 
 export default function AdminFormScreen({ route, navigation }) {
   const book = route.params?.book;
@@ -23,9 +23,64 @@ export default function AdminFormScreen({ route, navigation }) {
     setFormData({ ...formData, [name]: value });
   };
 
+  // Chọn ảnh từ thư viện thiết bị và chuyển thành Base64
+  const handlePickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      return Alert.alert('Cần cấp quyền', 'Vui lòng cấp quyền truy cập thư viện ảnh để chọn ảnh bìa sách.');
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [2, 3],
+      quality: 0.6, // Nén nhẹ để tối ưu dung lượng khi lưu vào MongoDB
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      if (asset.base64) {
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const base64Uri = `data:${mimeType};base64,${asset.base64}`;
+        handleChange('coverImage', base64Uri);
+      } else if (asset.uri) {
+        handleChange('coverImage', asset.uri);
+      }
+    }
+  };
+
+  // Chụp ảnh trực tiếp từ Camera (trên điện thoại)
+  const handleTakePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      return Alert.alert('Cần cấp quyền', 'Vui lòng cấp quyền máy ảnh để chụp ảnh bìa sách.');
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [2, 3],
+      quality: 0.6,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      if (asset.base64) {
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const base64Uri = `data:${mimeType};base64,${asset.base64}`;
+        handleChange('coverImage', base64Uri);
+      }
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.bookName.trim() || !formData.author.trim() || !formData.price.trim() || !formData.category.trim()) {
       return Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ Tên sách, Tác giả, Giá tiền và Thể loại!');
+    }
+
+    if (!formData.coverImage) {
+      return Alert.alert('Thiếu ảnh bìa', 'Vui lòng chọn hình ảnh bìa sách từ máy!');
     }
 
     const numericPrice = Number(formData.price);
@@ -46,7 +101,7 @@ export default function AdminFormScreen({ route, navigation }) {
           author: formData.author.trim(),
           price: numericPrice,
           category: formData.category.trim(),
-          coverImage: formData.coverImage.trim() || DEFAULT_COVER
+          coverImage: formData.coverImage
         })
       });
 
@@ -101,16 +156,30 @@ export default function AdminFormScreen({ route, navigation }) {
           placeholder="Tiểu thuyết, Kỹ năng sống, Khoa học..." 
         />
 
-        <Text style={styles.label}>Link ảnh bìa (URL)</Text>
-        <TextInput 
-          style={styles.input} 
-          value={formData.coverImage} 
-          onChangeText={(text) => handleChange('coverImage', text)} 
-          placeholder="https://... (để trống sẽ dùng ảnh mặc định)" 
-        />
+        <Text style={styles.label}>Hình ảnh bìa sách (*)</Text>
+        <View style={styles.imagePickerRow}>
+          <TouchableOpacity style={styles.imagePickerBtn} onPress={handlePickImage}>
+            <Ionicons name="images-outline" size={20} color="#C5532A" />
+            <Text style={styles.imagePickerBtnText}>Chọn ảnh từ máy</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.imagePickerBtn} onPress={handleTakePhoto}>
+            <Ionicons name="camera-outline" size={20} color="#C5532A" />
+            <Text style={styles.imagePickerBtnText}>Chụp ảnh</Text>
+          </TouchableOpacity>
+        </View>
 
         {formData.coverImage ? (
-          <Image source={{ uri: formData.coverImage }} style={styles.imagePreview} />
+          <View style={styles.previewContainer}>
+            <Image source={{ uri: formData.coverImage }} style={styles.imagePreview} />
+            <TouchableOpacity
+              style={styles.removeImageBtn}
+              onPress={() => handleChange('coverImage', '')}
+            >
+              <Ionicons name="close-circle-outline" size={16} color="#E25842" />
+              <Text style={styles.removeImageText}>Xóa ảnh đã chọn</Text>
+            </TouchableOpacity>
+          </View>
         ) : null}
 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSubmit} disabled={loading}>

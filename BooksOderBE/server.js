@@ -11,7 +11,9 @@ const User = require('./models/User');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Tăng giới hạn dung lượng JSON & URL-encoded lên 25MB để nhận ảnh Base64
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
 // 1. Kết nối MongoDB
 mongoose.connect(process.env.MONGODB_URI)
