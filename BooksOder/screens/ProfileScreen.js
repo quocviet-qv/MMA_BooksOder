@@ -37,7 +37,7 @@ export default function ProfileScreen({ navigation }) {
   const loadUserStats = async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`${API_URL}/orders/user/${userId}`);
+      const res = await fetch(`${API_URL}/orders/${userId}`);
       if (res.ok) {
         const orders = await res.json();
         setOrderCount(Array.isArray(orders) ? orders.length : 0);
