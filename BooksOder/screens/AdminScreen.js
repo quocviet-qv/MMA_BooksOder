@@ -5,15 +5,13 @@ import React, { useCallback, useState } from 'react';
 // Đã xóa SafeAreaView khỏi import
 import { ActivityIndicator, Alert, FlatList, Image, Text, TouchableOpacity, View } from 'react-native';
 
-// Import style CSS của bạn
+import { API_URL } from '../src/constants/api';
 import { styles } from '../styles/AdminScreenStyles';
 
 export default function AdminScreen({ navigation, route }) {
   const { setIsLoggedIn, setUserRole } = route.params || {};
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const API_URL = 'http://192.168.101.105:3000';
 
   // Tự động tải lại danh sách sách mỗi khi quay lại màn hình này
   useFocusEffect(

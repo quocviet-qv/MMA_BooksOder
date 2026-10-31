@@ -97,9 +97,69 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+// @desc    Lấy toàn bộ đơn hàng của tất cả khách hàng (Dành cho Admin)
+// @route   GET /orders
+const getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate('items.bookId')
+      .sort({ createdAt: -1 });
+
+    // Lấy thông tin username của từng khách hàng nếu có
+    const User = require('../models/User');
+    const users = await User.find({}, 'username');
+    const userMap = {};
+    users.forEach((u) => {
+      userMap[u._id.toString()] = u.username;
+    });
+
+    const formattedOrders = orders.map((order) => {
+      const orderObj = order.toObject();
+      orderObj.customerName = userMap[order.userId] || order.userId || 'Khách hàng';
+      return orderObj;
+    });
+
+    res.json(formattedOrders);
+  } catch (error) {
+    console.error('Lỗi lấy toàn bộ đơn hàng:', error);
+    res.status(500).json({ error: 'Lỗi server khi lấy danh sách đơn hàng' });
+  }
+};
+
+// @desc    Admin cập nhật trạng thái đơn hàng (Chờ xác nhận -> Đang vận chuyển -> Hoàn thành / Đã hủy)
+// @route   PUT /orders/:id/status
+const updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['Chờ xác nhận', 'Đang vận chuyển', 'Hoàn thành', 'Đã hủy'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: `Trạng thái không hợp lệ. Phải là: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    const order = await Order.findById(id).populate('items.bookId');
+    if (!order) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.json({ message: 'Cập nhật trạng thái đơn hàng thành công', order });
+  } catch (error) {
+    console.error('Lỗi cập nhật trạng thái đơn hàng:', error);
+    res.status(500).json({ error: 'Lỗi server khi cập nhật trạng thái đơn hàng' });
+  }
+};
+
 module.exports = {
   checkout,
   getUserOrders,
   getOrderDetail,
   cancelOrder,
+  getAllOrders,
+  updateOrderStatus,
 };

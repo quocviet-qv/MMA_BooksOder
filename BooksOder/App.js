@@ -6,9 +6,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
-// Import các màn hình User
+// Import các màn hình User & Admin
 import AdminFormScreen from './screens/AdminFormScreen';
 import AdminScreen from './screens/AdminScreen';
+import AdminOrdersScreen from './screens/AdminOrdersScreen';
 import CartScreen from './screens/CartScreen';
 import DetailScreen from './screens/DetailScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
@@ -58,7 +59,41 @@ function MainTabs({ route }) {
   );
 }
 
-// 2. Giao diện tạm thời cho Admin
+// 2. Cụm Tab cho Quản trị viên (Kho sách & Quản lý đơn hàng)
+function AdminTabs({ route }) {
+  const { setIsLoggedIn, setUserRole } = route.params || {};
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'AdminBooks') {
+            iconName = focused ? 'book' : 'book-outline';
+          } else if (route.name === 'AdminOrdersTab') {
+            iconName = focused ? 'receipt' : 'receipt-outline';
+          }
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#C5532A',
+        tabBarInactiveTintColor: 'gray',
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen
+        name="AdminBooks"
+        component={AdminScreen}
+        initialParams={{ setIsLoggedIn, setUserRole }}
+        options={{ title: 'Kho sách' }}
+      />
+      <Tab.Screen
+        name="AdminOrdersTab"
+        component={AdminOrdersScreen}
+        initialParams={{ setIsLoggedIn, setUserRole }}
+        options={{ title: 'Đơn hàng' }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 // 3. KHUNG ĐIỀU HƯỚNG CHÍNH (GLOBAL STACK)
 export default function App() {
@@ -118,7 +153,7 @@ export default function App() {
           <>
             <Stack.Screen 
               name="Admin" 
-              component={AdminScreen} 
+              component={AdminTabs} 
               initialParams={{ setIsLoggedIn, setUserRole }} 
             />
             <Stack.Screen 
