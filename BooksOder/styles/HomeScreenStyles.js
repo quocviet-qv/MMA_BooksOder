@@ -48,5 +48,8 @@ export const styles = StyleSheet.create({
   favoriteBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: '#FFF', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
   bookInfo: { padding: 10 },
   bookTitle: { fontSize: 14, fontWeight: 'bold', color: '#1A1A1A', marginBottom: 4 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  ratingText: { fontSize: 12, fontWeight: 'bold', color: '#1A1A1A', marginLeft: 4 },
+  reviewCountText: { fontSize: 11, color: '#888', marginLeft: 3 },
   bookPrice: { fontSize: 14, color: '#E25842', fontWeight: '600' }
 });

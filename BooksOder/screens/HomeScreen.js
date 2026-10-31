@@ -149,6 +149,15 @@ export default function HomeScreen({ navigation, route }) {
 
         <View style={styles.bookInfo}>
           <Text style={styles.bookTitle} numberOfLines={1}>{item.bookName}</Text>
+          <View style={styles.ratingRow}>
+            <Ionicons name="star" size={13} color="#FFB800" />
+            <Text style={styles.ratingText}>
+              {item.averageRating && item.averageRating > 0 ? item.averageRating.toFixed(1) : '5.0'}
+            </Text>
+            <Text style={styles.reviewCountText}>
+              ({item.totalReviews || 0})
+            </Text>
+          </View>
           <Text style={styles.bookPrice}>{item.price.toLocaleString('vi-VN')} đ</Text>
         </View>
       </TouchableOpacity>

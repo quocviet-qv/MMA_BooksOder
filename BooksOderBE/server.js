@@ -8,31 +8,63 @@ const Favorite = require('./models/Favorite');
 const Cart = require('./models/Cart');
 const Order = require('./models/Order');
 const User = require('./models/User'); // Nhớ trỏ đúng đường dẫn tới file User.js vừa tạo
+const Review = require('./models/Review');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Tăng giới hạn dung lượng JSON để nhận ảnh Base64
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
 // 1. Kết nối MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ Đã kết nối thành công với MongoDB (BookStoreDB)'))
   .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
-// 2. API Lấy danh sách Sách (GET)
+// 2. API Lấy danh sách Sách (GET) - kèm Điểm đánh giá trung bình
 app.get('/books', async (req, res) => {
   try {
     const books = await Book.find().sort({ createdAt: -1 });
+
+    // Lấy thống kê đánh giá trung bình theo từng cuốn sách
+    const reviewStats = await Review.aggregate([
+      {
+        $group: {
+          _id: '$bookId',
+          averageRating: { $avg: '$rating' },
+          totalReviews: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const statsMap = {};
+    reviewStats.forEach(stat => {
+      statsMap[stat._id.toString()] = {
+        averageRating: Math.round(stat.averageRating * 10) / 10,
+        totalReviews: stat.totalReviews
+      };
+    });
+
     // Format lại _id thành id cho React Native dễ xử lý
-    const formattedBooks = books.map(book => ({
-      id: book._id.toString(),
-      bookName: book.bookName,
-      author: book.author,
-      price: book.price,
-      category: book.category,
-      coverImage: book.coverImage
-    }));
+    const formattedBooks = books.map(book => {
+      const idStr = book._id.toString();
+      const stat = statsMap[idStr] || { averageRating: 0, totalReviews: 0 };
+      return {
+        id: idStr,
+        _id: idStr,
+        bookName: book.bookName,
+        author: book.author,
+        price: book.price,
+        category: book.category,
+        coverImage: book.coverImage,
+        averageRating: stat.averageRating,
+        totalReviews: stat.totalReviews
+      };
+    });
+
     res.json(formattedBooks);
   } catch (error) {
+    console.error('Lỗi lấy danh sách sách:', error);
     res.status(500).json({ error: 'Lỗi server' });
   }
 });
@@ -328,11 +360,102 @@ app.delete('/books/:id', async (req, res) => {
     if (!deletedBook) {
       return res.status(404).json({ message: 'Không tìm thấy sách' });
     }
+
+    // Dọn dẹp các dữ liệu liên quan đến sách đã xóa
+    await Cart.deleteMany({ bookId: id });
+    await Favorite.deleteMany({ bookId: id });
+    await Review.deleteMany({ bookId: id });
     
     res.status(200).json({ message: 'Xóa sách thành công' });
   } catch (error) {
     console.error('Lỗi xóa sách:', error);
     res.status(500).json({ message: 'Lỗi server khi xóa', error });
+  }
+});
+
+// ==========================================
+// ⭐ API ĐÁNH GIÁ & BÌNH LUẬN (REVIEWS)
+// ==========================================
+
+// 1. Lấy danh sách đánh giá của một cuốn sách
+app.get('/reviews/:bookId', async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const reviews = await Review.find({ bookId }).sort({ createdAt: -1 });
+
+    const totalReviews = reviews.length;
+    const averageRating = totalReviews > 0
+      ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews) * 10) / 10
+      : 0;
+
+    // Thống kê phân bố số sao (1 đến 5 sao)
+    const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviews.forEach(r => {
+      if (ratingCounts[r.rating] !== undefined) {
+        ratingCounts[r.rating]++;
+      }
+    });
+
+    res.json({
+      reviews,
+      totalReviews,
+      averageRating,
+      ratingCounts
+    });
+  } catch (error) {
+    console.error('Lỗi tải đánh giá:', error);
+    res.status(500).json({ error: 'Lỗi server khi lấy đánh giá' });
+  }
+});
+
+// 2. Thêm đánh giá mới cho sách (POST)
+app.post('/reviews', async (req, res) => {
+  try {
+    const { bookId, userId, rating, comment } = req.body;
+
+    if (!bookId || !userId || !rating || !comment) {
+      return res.status(400).json({ message: 'Vui lòng chọn số sao và nhập nhận xét.' });
+    }
+
+    const numRating = Number(rating);
+    if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ message: 'Số sao phải từ 1 đến 5.' });
+    }
+
+    // Lấy username thực tế của user từ User collection nếu có
+    let username = 'Khách hàng';
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      const user = await User.findById(userId);
+      if (user && user.username) username = user.username;
+    } else if (typeof userId === 'string' && userId.trim()) {
+      username = userId;
+    }
+
+    const newReview = new Review({
+      bookId,
+      userId,
+      username,
+      rating: numRating,
+      comment: comment.trim()
+    });
+
+    await newReview.save();
+
+    // Tính lại điểm trung bình sau khi thêm
+    const allReviews = await Review.find({ bookId });
+    const averageRating = Math.round(
+      (allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length) * 10
+    ) / 10;
+
+    res.status(201).json({
+      message: 'Gửi đánh giá thành công',
+      review: newReview,
+      averageRating,
+      totalReviews: allReviews.length
+    });
+  } catch (error) {
+    console.error('Lỗi lưu đánh giá:', error);
+    res.status(500).json({ message: 'Lỗi server khi lưu đánh giá', error });
   }
 });
 
