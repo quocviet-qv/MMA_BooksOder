@@ -10,5 +10,10 @@ export const styles = StyleSheet.create({
   btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
   linkContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 25 },
   linkText: { color: '#666', fontSize: 15 },
-  linkHighlight: { color: '#C5532A', fontSize: 15, fontWeight: 'bold', marginLeft: 5 }
+  linkHighlight: { color: '#C5532A', fontSize: 15, fontWeight: 'bold', marginLeft: 5 },
+  quickTestContainer: { marginTop: 28, backgroundColor: '#FFFFFF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#EDE8E1' },
+  quickTestTitle: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 10, textAlign: 'center' },
+  quickTestRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  quickTestBtn: { flex: 1, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 8, borderWidth: 1, alignItems: 'center' },
+  quickTestText: { fontSize: 12, fontWeight: 'bold' },
 });

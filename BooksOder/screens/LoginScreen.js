@@ -90,6 +90,42 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.linkHighlight}>Đăng ký ngay</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Phím chọn tài khoản test nhanh */}
+      <View style={styles.quickTestContainer}>
+        <Text style={styles.quickTestTitle}>⚡ Chọn tài khoản test nhanh:</Text>
+        <View style={styles.quickTestRow}>
+          <TouchableOpacity
+            style={[styles.quickTestBtn, { borderColor: '#C5532A', backgroundColor: '#FBECE7' }]}
+            onPress={() => {
+              setUsername('admin');
+              setPassword('admin123');
+            }}
+          >
+            <Text style={[styles.quickTestText, { color: '#C5532A' }]}>👑 Admin</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickTestBtn, { borderColor: '#2563EB', backgroundColor: '#EFF6FF' }]}
+            onPress={() => {
+              setUsername('user1');
+              setPassword('user123');
+            }}
+          >
+            <Text style={[styles.quickTestText, { color: '#2563EB' }]}>🛒 User 1</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickTestBtn, { borderColor: '#059669', backgroundColor: '#ECFDF5' }]}
+            onPress={() => {
+              setUsername('user2');
+              setPassword('user123');
+            }}
+          >
+            <Text style={[styles.quickTestText, { color: '#059669' }]}>👤 User 2</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }

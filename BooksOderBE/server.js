@@ -5,11 +5,14 @@ require('dotenv').config();
 const connectDB = require('./config/db');
 const routes = require('./routes');
 const { notFound, errorHandler } = require('./middlewares/errorMiddleware');
+const seedDefaultUsers = require('./seeders/seedUsers');
 
 const app = express();
 
-// 1. Kết nối Cơ sở dữ liệu MongoDB Atlas
-connectDB();
+// 1. Kết nối Cơ sở dữ liệu MongoDB Atlas & Khởi tạo tài khoản mẫu
+connectDB().then(() => {
+  seedDefaultUsers();
+});
 
 // 2. Global Middlewares
 app.use(cors());
