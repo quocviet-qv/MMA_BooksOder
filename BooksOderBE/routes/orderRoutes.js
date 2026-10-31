@@ -7,8 +7,10 @@ const {
   cancelOrder,
   getAllOrders,
   updateOrderStatus,
+  getDashboardStats,
 } = require('../controllers/orderController');
 
+router.get('/dashboard/stats', getDashboardStats); // GET /orders/dashboard/stats -> Thống kê Admin
 router.get('/', getAllOrders); // GET /orders -> Admin xem tất cả đơn hàng
 router.get('/detail/:id', getOrderDetail); // GET /orders/detail/:id
 router.put('/:id/status', updateOrderStatus); // PUT /orders/:id/status -> Admin đổi trạng thái

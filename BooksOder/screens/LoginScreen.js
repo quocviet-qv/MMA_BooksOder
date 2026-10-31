@@ -39,6 +39,7 @@ export default function LoginScreen({ navigation }) {
           token: data.token || 'dummy_token',
           role: data.role || 'user',
           userId: data.userId || 'user123',
+          username: data.username || username.trim(),
         });
       } else {
         Alert.alert('Đăng nhập thất bại', data.message || 'Sai tài khoản hoặc mật khẩu');

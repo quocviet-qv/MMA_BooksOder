@@ -3,7 +3,7 @@ const Cart = require('../models/Cart');
 const Favorite = require('../models/Favorite');
 const Review = require('../models/Review');
 
-// @desc    Lấy danh sách tất cả sách kèm thống kê đánh giá
+// @desc    Lấy danh sách tất cả sách kèm thống kê đánh giá, mô tả và tồn kho
 // @route   GET /books
 const getBooks = async (req, res) => {
   try {
@@ -39,6 +39,8 @@ const getBooks = async (req, res) => {
         price: book.price,
         category: book.category,
         coverImage: book.coverImage,
+        description: book.description || '',
+        stock: book.stock !== undefined ? book.stock : 50,
         averageRating: stat.averageRating,
         totalReviews: stat.totalReviews,
       };
@@ -51,12 +53,20 @@ const getBooks = async (req, res) => {
   }
 };
 
-// @desc    Thêm sách mới
+// @desc    Thêm sách mới (kèm mô tả và số lượng tồn kho)
 // @route   POST /books
 const addBook = async (req, res) => {
   try {
-    const { bookName, author, price, category, coverImage } = req.body;
-    const newBook = new Book({ bookName, author, price, category, coverImage });
+    const { bookName, author, price, category, coverImage, description, stock } = req.body;
+    const newBook = new Book({
+      bookName,
+      author,
+      price: Number(price),
+      category: category || 'Khác',
+      coverImage,
+      description: description || '',
+      stock: stock !== undefined && stock !== '' ? Number(stock) : 50,
+    });
     await newBook.save();
 
     res.status(201).json({ message: 'Thêm sách thành công', newBook });
@@ -71,7 +81,13 @@ const addBook = async (req, res) => {
 const updateBook = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedBook = await Book.findByIdAndUpdate(id, req.body, { new: true });
+    const updateData = { ...req.body };
+    if (updateData.price) updateData.price = Number(updateData.price);
+    if (updateData.stock !== undefined && updateData.stock !== '') {
+      updateData.stock = Number(updateData.stock);
+    }
+
+    const updatedBook = await Book.findByIdAndUpdate(id, updateData, { new: true });
 
     if (!updatedBook) {
       return res.status(404).json({ message: 'Không tìm thấy sách' });

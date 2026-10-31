@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, getAuthHeaders } from '../src/constants/api';
 import { styles } from '../styles/AdminFormScreenStyles';
 
 export default function AdminFormScreen({ route, navigation }) {
@@ -22,6 +22,8 @@ export default function AdminFormScreen({ route, navigation }) {
     price: book?.price ? book.price.toString() : '',
     category: book?.category || '',
     coverImage: book?.coverImage || '',
+    description: book?.description || '',
+    stock: book?.stock !== undefined ? book.stock.toString() : '50',
   });
   const [loading, setLoading] = useState(false);
 
@@ -39,12 +41,14 @@ export default function AdminFormScreen({ route, navigation }) {
     const endpoint = isEdit ? `${API_URL}/books/${book._id || book.id}` : `${API_URL}/books`;
 
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(endpoint, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           ...formData,
           price: Number(formData.price),
+          stock: Number(formData.stock) || 0,
         }),
       });
 
@@ -94,12 +98,31 @@ export default function AdminFormScreen({ route, navigation }) {
         onChangeText={(text) => handleChange('price', text)}
       />
 
+      <Text style={styles.label}>Số lượng tồn kho (Cuốn) *</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Ví dụ: 50"
+        keyboardType="numeric"
+        value={formData.stock}
+        onChangeText={(text) => handleChange('stock', text)}
+      />
+
       <Text style={styles.label}>Thể loại *</Text>
       <TextInput
         style={styles.input}
         placeholder="Tiểu thuyết, Kinh tế, Công nghệ..."
         value={formData.category}
         onChangeText={(text) => handleChange('category', text)}
+      />
+
+      <Text style={styles.label}>Mô tả nội dung sách</Text>
+      <TextInput
+        style={[styles.input, { minHeight: 90, textAlignVertical: 'top' }]}
+        placeholder="Nhập tóm tắt nội dung, điểm nổi bật của cuốn sách..."
+        multiline
+        numberOfLines={4}
+        value={formData.description}
+        onChangeText={(text) => handleChange('description', text)}
       />
 
       <Text style={styles.label}>Link ảnh bìa sách (URL)</Text>

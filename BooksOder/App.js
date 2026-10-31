@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { CartProvider, useCart } from './src/context/CartContext';
 
 // Import các màn hình User & Admin
+import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AdminFormScreen from './screens/AdminFormScreen';
 import AdminOrdersScreen from './screens/AdminOrdersScreen';
 import AdminScreen from './screens/AdminScreen';
@@ -19,6 +20,7 @@ import FavoritesScreen from './screens/FavoritesScreen';
 import HomeScreen from './screens/HomeScreen';
 import OrderDetailScreen from './screens/OrderDetailScreen';
 import OrdersScreen from './screens/OrdersScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 // Import các màn hình Xác thực
 import LoginScreen from './screens/LoginScreen';
@@ -27,7 +29,7 @@ import RegisterScreen from './screens/RegisterScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// 1. Cụm Tab cho User bình thường (kèm Badge giỏ hàng nhảy số realtime)
+// 1. Cụm Tab cho User bình thường (kèm Badge giỏ hàng nhảy số realtime và Tab Hồ sơ)
 function MainTabs() {
   const { cartCount } = useCart();
 
@@ -44,6 +46,8 @@ function MainTabs() {
             iconName = focused ? 'bag-handle' : 'bag-handle-outline';
           } else if (route.name === 'Orders') {
             iconName = focused ? 'receipt' : 'receipt-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -64,18 +68,21 @@ function MainTabs() {
         }}
       />
       <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: 'Đơn hàng' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Tài khoản' }} />
     </Tab.Navigator>
   );
 }
 
-// 2. Cụm Tab cho Quản trị viên (Kho sách & Quản lý đơn hàng)
+// 2. Cụm Tab cho Quản trị viên (Thống kê doanh thu, Kho sách & Quản lý đơn hàng)
 function AdminTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          if (route.name === 'AdminBooks') {
+          if (route.name === 'AdminDashboard') {
+            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
+          } else if (route.name === 'AdminBooks') {
             iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'AdminOrdersTab') {
             iconName = focused ? 'receipt' : 'receipt-outline';
@@ -87,6 +94,11 @@ function AdminTabs() {
         headerShown: false,
       })}
     >
+      <Tab.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{ title: 'Thống kê' }}
+      />
       <Tab.Screen name="AdminBooks" component={AdminScreen} options={{ title: 'Kho sách' }} />
       <Tab.Screen
         name="AdminOrdersTab"

@@ -248,13 +248,48 @@ export default function DetailScreen({ route, navigation }) {
           {/* Giá sách */}
           <Text style={styles.price}>{book.price?.toLocaleString('vi-VN')} đ</Text>
 
+          {/* Trạng thái tồn kho */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: (book.stock !== undefined && book.stock <= 0) ? '#FFEBEE' : '#E8F5E9',
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: (book.stock !== undefined && book.stock <= 0) ? '#FFCDD2' : '#C8E6C9',
+              }}
+            >
+              <Ionicons
+                name={(book.stock !== undefined && book.stock <= 0) ? "alert-circle" : "checkmark-circle"}
+                size={14}
+                color={(book.stock !== undefined && book.stock <= 0) ? "#D32F2F" : "#2E7D32"}
+              />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: 'bold',
+                  color: (book.stock !== undefined && book.stock <= 0) ? '#D32F2F' : '#2E7D32',
+                  marginLeft: 4,
+                }}
+              >
+                {(book.stock !== undefined && book.stock <= 0)
+                  ? 'Tạm hết hàng'
+                  : `Còn hàng (Kho: ${book.stock !== undefined ? book.stock : 50} cuốn)`}
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.divider} />
 
           {/* Giới thiệu nội dung */}
           <Text style={styles.sectionTitle}>Giới thiệu nội dung</Text>
           <Text style={styles.description}>
-            Đây là một trong những cuốn sách tuyệt vời nhất thuộc thể loại {book.category}.
-            Với những triết lý sâu sắc và bài học thực tế, tác phẩm của {book.author} chắc chắn sẽ mang lại cho bạn những giây phút đọc sách thú vị và bổ ích. Hãy thêm vào giỏ hàng để sở hữu ngay!
+            {book.description && book.description.trim()
+              ? book.description
+              : `Đây là một trong những cuốn sách tuyệt vời nhất thuộc thể loại ${book.category}. Với những triết lý sâu sắc và bài học thực tế, tác phẩm của ${book.author} chắc chắn sẽ mang lại cho bạn những giây phút đọc sách thú vị và bổ ích. Hãy thêm vào giỏ hàng để sở hữu ngay!`}
           </Text>
 
           <View style={styles.divider} />

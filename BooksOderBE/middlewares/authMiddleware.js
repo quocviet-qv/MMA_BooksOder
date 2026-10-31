@@ -1,0 +1,43 @@
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+// Middleware xác thực token đăng nhập (JWT)
+const protect = async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || 'supersecretjwtkey_bookstore_2026'
+      );
+
+      req.user = await User.findById(decoded.id).select('-password');
+      if (!req.user) {
+        return res.status(401).json({ message: 'Người dùng không tồn tại hoặc token hết hạn' });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Lỗi xác thực token:', error.message);
+      return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
+    }
+  } else {
+    return res.status(401).json({ message: 'Không có token xác thực, truy cập bị từ chối' });
+  }
+};
+
+// Middleware kiểm tra quyền Quản trị viên (Admin)
+const adminOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Yêu cầu quyền Quản trị viên (Admin)' });
+  }
+};
+
+module.exports = { protect, adminOnly };
