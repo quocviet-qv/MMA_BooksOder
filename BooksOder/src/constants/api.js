@@ -28,6 +28,16 @@ const getBaseUrl = () => {
 
 export const API_URL = getBaseUrl();
 
+// Attach credentials consistently to requests made by the existing screens.
+export const apiFetch = async (url, options = {}) => {
+  const headers = new Headers(options.headers || {});
+  if (String(url).startsWith(`${API_URL}/`)) {
+    const token = await AsyncStorage.getItem('userToken');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  }
+  return globalThis.fetch(url, { ...options, headers });
+};
+
 // Lấy UserId thực tế đã lưu khi đăng nhập
 export const getCurrentUserId = async () => {
   try {
@@ -48,7 +58,7 @@ export const getAuthHeaders = async () => {
       headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
-  } catch (error) {
+  } catch {
     return { 'Content-Type': 'application/json' };
   }
 };

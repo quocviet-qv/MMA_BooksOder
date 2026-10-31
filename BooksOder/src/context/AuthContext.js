@@ -1,103 +1,36 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-
+import { API_URL } from '../constants/api';
 const AuthContext = createContext();
-
+const keys = ['userToken', 'userRole', 'userId', 'userName'];
 export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-  const [userId, setUserId] = useState(null);
-  const [userName, setUserName] = useState(null);
-  const [userToken, setUserToken] = useState(null);
-
-  // Kiểm tra phiên đăng nhập đã lưu trong AsyncStorage khi mở ứng dụng
+  const [session, setSession] = useState(null);
   useEffect(() => {
-    loadStoredAuth();
+    let active = true;
+    Promise.all([AsyncStorage.getItem('userToken'), AsyncStorage.getItem('userId')])
+      .then(async ([token, userId]) => {
+        if (!token || !userId) return null;
+        const response = await fetch(`${API_URL}/profile/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) { await AsyncStorage.multiRemove(keys); return null; }
+        const profile = await response.json();
+        return { token, userId: profile._id, role: profile.role, username: profile.username };
+      })
+      .then(stored => { if (active) setSession(stored); })
+      .catch(error => console.error('Không thể khôi phục phiên đăng nhập:', error.message))
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
   }, []);
-
-  const loadStoredAuth = async () => {
-    try {
-      const [token, role, uid, uname] = await Promise.all([
-        AsyncStorage.getItem('userToken'),
-        AsyncStorage.getItem('userRole'),
-        AsyncStorage.getItem('userId'),
-        AsyncStorage.getItem('userName'),
-      ]);
-
-      if (token) {
-        setUserToken(token);
-        setUserRole(role || 'user');
-        setUserId(uid || 'user123');
-        setUserName(uname || 'Người dùng');
-        setIsLoggedIn(true);
-      }
-    } catch (error) {
-      console.error('Lỗi khi tải thông tin đăng nhập đã lưu:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const login = async ({ token, role, userId, username }) => {
+    if (!token || !userId || !['user', 'admin'].includes(role)) throw new Error('Thông tin đăng nhập không hợp lệ');
+    await AsyncStorage.multiSet([['userToken', token], ['userRole', role], ['userId', String(userId)], ['userName', username]]);
+    setSession({ token, role, userId: String(userId), username });
   };
-
-  const login = async ({ token, role, userId: newUserId, username: newUserName }) => {
-    try {
-      const safeRole = role || 'user';
-      const safeId = newUserId ? newUserId.toString() : 'user123';
-      const safeToken = token || 'dummy_token';
-      const safeName = newUserName || 'Người dùng';
-
-      await AsyncStorage.multiSet([
-        ['userToken', safeToken],
-        ['userRole', safeRole],
-        ['userId', safeId],
-        ['userName', safeName],
-      ]);
-
-      setUserToken(safeToken);
-      setUserRole(safeRole);
-      setUserId(safeId);
-      setUserName(safeName);
-      setIsLoggedIn(true);
-    } catch (error) {
-      console.error('Lỗi lưu đăng nhập:', error);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await AsyncStorage.multiRemove(['userToken', 'userRole', 'userId', 'userName']);
-      setUserToken(null);
-      setUserRole(null);
-      setUserId(null);
-      setUserName(null);
-      setIsLoggedIn(false);
-    } catch (error) {
-      console.error('Lỗi đăng xuất:', error);
-    }
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        isLoading,
-        isLoggedIn,
-        userRole,
-        userId,
-        userName,
-        userToken,
-        login,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const logout = async () => { await AsyncStorage.multiRemove(keys); setSession(null); };
+  return <AuthContext.Provider value={{ isLoading, isLoggedIn: !!session, userRole: session?.role, userId: session?.userId, userName: session?.username, userToken: session?.token, login, logout }}>{children}</AuthContext.Provider>;
 }
-
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth phải được sử dụng bên trong AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used inside AuthProvider');
   return context;
 }

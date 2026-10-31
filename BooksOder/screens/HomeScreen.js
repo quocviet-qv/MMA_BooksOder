@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -25,9 +25,9 @@ import { styles } from '../styles/HomeScreenStyles';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
-  const { userId, userName, logout } = useAuth();
+  const { userId } = useAuth();
   const { cartCount, refreshCartCount } = useCart();
-  const { t, language, toggleLanguage } = useLanguage();
+  const { t, language } = useLanguage();
 
   const categories = useMemo(
     () => [
@@ -88,25 +88,7 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(t('common.confirm'), t('common.logoutConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.logout'),
-        style: 'destructive',
-        onPress: () => logout(),
-      },
-    ]);
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      loadHomeData();
-      refreshCartCount(userId);
-    }, [userId])
-  );
-
-  const loadHomeData = async () => {
+  const loadHomeData = useCallback(async () => {
     try {
       const currentId = userId || 'user123';
       const [booksRes, favRes] = await Promise.all([
@@ -132,7 +114,10 @@ export default function HomeScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [userId]);
+
+
+  useFocusEffect(useCallback(() => { loadHomeData(); refreshCartCount(userId); }, [loadHomeData, refreshCartCount, userId]));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -194,7 +179,7 @@ export default function HomeScreen({ navigation }) {
           language === 'vi' ? 'Không thể thêm sách vào lúc này.' : 'Could not add to cart right now.'
         );
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert(
         language === 'vi' ? 'Lỗi kết nối' : 'Connection Error',
         language === 'vi' ? 'Vui lòng kiểm tra lại mạng.' : 'Please check your connection.'

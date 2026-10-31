@@ -1,5 +1,6 @@
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL, getAuthHeaders } from '../src/constants/api';
+import { API_URL, getAuthHeaders, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/AdminDashboardScreenStyles';
@@ -41,9 +42,7 @@ export default function AdminDashboardScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+  useFocusEffect(useCallback(() => { fetchStats(); }, [fetchStats]));
 
   const onRefresh = () => {
     setRefreshing(true);

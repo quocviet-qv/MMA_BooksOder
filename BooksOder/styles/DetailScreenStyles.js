@@ -19,8 +19,8 @@ export const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   coverImage: {
-    width: width * 0.55,
-    height: width * 0.82,
+    width: Math.min(width * 0.55, 260),
+    height: Math.min(width * 0.82, 390),
     resizeMode: 'cover',
     borderRadius: 16,
     shadowColor: '#0F172A',

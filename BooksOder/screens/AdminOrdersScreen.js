@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,7 +16,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
+import PaymentPanel from '../src/components/PaymentPanel';
 import { useAuth } from '../src/context/AuthContext';
 import { styles } from '../styles/AdminOrdersScreenStyles';
 
@@ -48,13 +49,8 @@ export default function AdminOrdersScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchOrders();
-    }, [])
-  );
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/orders`);
       if (response.ok) {
@@ -70,7 +66,10 @@ export default function AdminOrdersScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+
+  useFocusEffect(useCallback(() => { fetchOrders(); }, [fetchOrders]));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -156,7 +155,7 @@ export default function AdminOrdersScreen({ navigation }) {
       if (response.ok) {
         Alert.alert('Thành công 🎉', `Đơn hàng đã được chuyển sang trạng thái "${newStatus}".`);
         setOrders((prev) =>
-          prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o))
+          prev.map((o) => (o._id === orderId ? { ...o, ...data.order } : o))
         );
         setModalVisible(false);
       } else {
@@ -236,6 +235,8 @@ export default function AdminOrdersScreen({ navigation }) {
 
     return (
       <View style={styles.orderCard}>
+        <PaymentPanel order={item} onUpdate={updated => setOrders(previous => previous.map(o => o._id === updated._id ? { ...o, ...updated } : o))} />
+        <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { orderId: item._id })}><Text style={{ color: '#B91C1C', fontWeight: '700', marginBottom: 12 }}>Xem chi tiết đơn hàng →</Text></TouchableOpacity>
         {/* Header thẻ: Mã đơn & Trạng thái */}
         <View style={styles.cardTopRow}>
           <View>

@@ -13,7 +13,7 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(
         token,
-        process.env.JWT_SECRET || 'supersecretjwtkey_bookstore_2026'
+        process.env.JWT_SECRET
       );
 
       req.user = await User.findById(decoded.id).select('-password');
@@ -40,4 +40,11 @@ const adminOnly = (req, res, next) => {
   }
 };
 
-module.exports = { protect, adminOnly };
+const ownAccount = (req, res, next) => {
+  if (req.params.userId && req.params.userId !== req.user.id) {
+    return res.status(403).json({ message: 'Bạn không có quyền truy cập tài khoản này' });
+  }
+  if (req.body) req.body.userId = req.user.id;
+  next();
+};
+module.exports = { protect, adminOnly, ownAccount };

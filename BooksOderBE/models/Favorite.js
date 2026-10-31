@@ -7,4 +7,5 @@ const favoriteSchema = new mongoose.Schema({
   bookId: { type: mongoose.Schema.Types.ObjectId, ref: 'Book', required: true }
 }, { timestamps: true });
 
+favoriteSchema.index({ userId: 1, bookId: 1 }, { unique: true });
 module.exports = mongoose.model('Favorite', favoriteSchema);

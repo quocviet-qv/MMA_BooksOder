@@ -7,12 +7,11 @@ const notFound = (req, res, next) => {
 
 // Middleware xử lý lỗi toàn cục (Global Error Handler)
 const errorHandler = (err, req, res, next) => {
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  const statusCode = err.status || (err.name === 'CastError' || err.name === 'ValidationError' ? 400 : err.code === 11000 ? 409 : res.statusCode === 200 ? 500 : res.statusCode);
   console.error(`❌ [Error ${statusCode}]:`, err.message);
 
   res.status(statusCode).json({
     message: err.message || 'Lỗi máy chủ nội bộ',
-    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
   });
 };
 

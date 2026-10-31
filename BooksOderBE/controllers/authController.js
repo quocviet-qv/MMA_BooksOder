@@ -6,7 +6,7 @@ const User = require('../models/User');
 const generateToken = (id, role) => {
   return jwt.sign(
     { id, role },
-    process.env.JWT_SECRET || 'supersecretjwtkey_bookstore_2026',
+    process.env.JWT_SECRET,
     { expiresIn: '30d' }
   );
 };
@@ -16,6 +16,9 @@ const generateToken = (id, role) => {
 const register = async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (typeof username !== 'string' || !/^[a-zA-Z0-9_]{3,30}$/.test(username.trim()) || typeof password !== 'string' || password.length < 6 || password.length > 72) {
+      return res.status(400).json({ message: 'Tên tài khoản gồm 3–30 chữ, số hoặc _. Mật khẩu từ 6–72 ký tự.' });
+    }
 
     if (!username || !password) {
       return res.status(400).json({ message: 'Vui lòng nhập tài khoản và mật khẩu' });
@@ -26,8 +29,8 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Tài khoản này đã tồn tại!' });
     }
 
-    // Tự động phân quyền: Nếu username là "admin" thì là admin, còn lại là user
-    const userRole = username.trim().toLowerCase() === 'admin' ? 'admin' : 'user';
+    // Public registration can only create customer accounts.
+    const userRole = 'user';
 
     // Mã hóa mật khẩu an toàn
     const salt = await bcrypt.genSalt(10);
@@ -53,6 +56,7 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (typeof username !== 'string' || typeof password !== 'string') return res.status(400).json({ message: 'Thông tin đăng nhập không hợp lệ' });
 
     if (!username || !password) {
       return res.status(400).json({ message: 'Vui lòng nhập tài khoản và mật khẩu' });
@@ -103,12 +107,12 @@ const changePassword = async (req, res) => {
   try {
     const { userId, oldPassword, newPassword } = req.body;
 
-    if (!userId || !oldPassword || !newPassword) {
+    if (!userId || typeof oldPassword !== 'string' || typeof newPassword !== 'string') {
       return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+    if (newPassword.length < 6 || newPassword.length > 72) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có từ 6 đến 72 ký tự' });
     }
 
     const user = await User.findById(userId);

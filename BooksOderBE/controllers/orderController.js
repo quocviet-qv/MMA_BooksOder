@@ -1,275 +1,125 @@
+const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Book = require('../models/Book');
 const User = require('../models/User');
-
-// @desc    Thanh toán (Kiểm tra tồn kho, trừ tồn kho & Tạo đơn hàng)
-// @route   POST /checkout
-const checkout = async (req, res) => {
-  const { userId, address } = req.body;
+const fail = (status, message) => Object.assign(new Error(message), { status });
+const pending = ['Chờ xác nhận', 'Đang xử lý'];
+const normalize = s => ({ 'Đang xử lý': 'Chờ xác nhận', 'Đang giao': 'Đang vận chuyển', 'Đã giao': 'Hoàn thành' }[s] || s);
+function totals(items) {
+  const subtotal = items.reduce((sum, item) => sum + item.bookId.price * item.quantity, 0);
+  const shippingFee = subtotal >= 300000 || !items.length ? 0 : 25000;
+  return { subtotal, shippingFee, totalAmount: subtotal + shippingFee };
+}
+function view(order) {
+  const data = order.toObject ? order.toObject() : order;
+  data.items = data.items.map(item => ({ ...item, bookId: item.bookId || { bookName: item.bookName || 'Sách đã ngừng bán', author: item.author, coverImage: item.coverImage } }));
+  return data;
+}
+async function accessibleOrder(req, session) {
+  const query = { _id: req.params.id };
+  if (req.user.role !== 'admin') query.userId = req.user.id;
+  const order = await Order.findOne(query).session(session || null);
+  if (!order) throw fail(404, 'Không tìm thấy đơn hàng');
+  return order;
+}
+exports.getCheckoutSummary = async (req, res) => {
+  const items = (await Cart.find({ userId: req.user.id }).populate('bookId')).filter(i => i.bookId);
+  res.json({ items, ...totals(items) });
+};
+exports.checkout = async (req, res) => {
+  const { recipientName, phone, address, note = '', paymentMethod = 'COD', checkoutKey } = req.body;
+  if (typeof recipientName !== 'string' || recipientName.trim().length < 2 || recipientName.length > 100 || typeof address !== 'string' || address.trim().length < 10 || address.length > 500 || typeof phone !== 'string' || !/^(0\d{9}|\+84\d{9})$/.test(phone.replace(/[\s.-]/g, ''))) throw fail(400, 'Nhập họ tên, số điện thoại Việt Nam và địa chỉ nhận hàng đầy đủ');
+  if (!['COD', 'BANK_TRANSFER'].includes(paymentMethod) || typeof note !== 'string' || note.length > 1000 || typeof checkoutKey !== 'string' || checkoutKey.length < 12 || checkoutKey.length > 100) throw fail(400, 'Thông tin thanh toán không hợp lệ');
+  let result;
   try {
-    const cartItems = await Cart.find({ userId }).populate('bookId');
-    const validCartItems = cartItems.filter((item) => item.bookId !== null);
-
-    if (validCartItems.length === 0) {
-      return res.status(400).json({ message: 'Giỏ hàng của bạn đang trống' });
-    }
-
-    // 1. Kiểm tra tồn kho trước khi đặt hàng
-    for (const item of validCartItems) {
-      const book = item.bookId;
-      if (book.stock !== undefined && book.stock < item.quantity) {
-        return res.status(400).json({
-          message: `Sách "${book.bookName}" trong kho chỉ còn ${book.stock} cuốn, không đủ số lượng ${item.quantity} bạn yêu cầu!`,
-        });
+    await mongoose.connection.transaction(async session => {
+      const existing = await Order.findOne({ userId: req.user.id, checkoutKey }).session(session);
+      if (existing) { result = existing; return; }
+      const cart = await Cart.find({ userId: req.user.id }).populate('bookId').session(session);
+      if (!cart.length) throw fail(400, 'Giỏ hàng đang trống');
+      if (cart.some(i => !i.bookId)) throw fail(400, 'Có sách đã ngừng bán. Vui lòng cập nhật giỏ hàng');
+      for (const item of cart) {
+        if (!Number.isSafeInteger(item.quantity) || item.quantity < 1) throw fail(400, 'Số lượng không hợp lệ');
+        const reserved = await Book.updateOne({ _id: item.bookId._id, stock: { $gte: item.quantity } }, { $inc: { stock: -item.quantity } }, { session });
+        if (!reserved.modifiedCount) throw fail(409, `Sách "${item.bookId.bookName}" không đủ tồn kho`);
       }
-    }
-
-    let totalAmount = 0;
-    const orderItems = validCartItems.map((item) => {
-      totalAmount += item.bookId.price * item.quantity;
-      return {
-        bookId: item.bookId._id,
-        quantity: item.quantity,
-        price: item.bookId.price,
-      };
+      [result] = await Order.create([{
+        userId: req.user.id, checkoutKey, recipientName: recipientName.trim(), phone: phone.replace(/[\s.-]/g, ''), address: address.trim(), note: note.trim(), paymentMethod,
+        paymentStatus: paymentMethod === 'COD' ? 'unpaid' : 'pending', ...totals(cart),
+        items: cart.map(i => ({ bookId: i.bookId._id, quantity: i.quantity, price: i.bookId.price, bookName: i.bookId.bookName, author: i.bookId.author, coverImage: i.bookId.coverImage })),
+      }], { session });
+      await Cart.deleteMany({ _id: { $in: cart.map(i => i._id) } }, { session });
     });
-
-    const newOrder = new Order({
-      userId,
-      items: orderItems,
-      totalAmount,
-      address,
-      status: 'Chờ xác nhận',
-    });
-    await newOrder.save();
-
-    // 2. Tự động trừ số lượng sách trong kho
-    for (const item of validCartItems) {
-      await Book.findByIdAndUpdate(item.bookId._id, {
-        $inc: { stock: -item.quantity },
-      });
-    }
-
-    // 3. Dọn sạch giỏ hàng của user sau khi đặt thành công
-    await Cart.deleteMany({ userId });
-
-    res.status(201).json({ message: 'Đặt hàng thành công', order: newOrder });
   } catch (error) {
-    console.error('Lỗi khi xử lý thanh toán:', error);
-    res.status(500).json({ error: 'Lỗi khi xử lý thanh toán' });
+    if (error.code !== 11000) throw error;
+    result = await Order.findOne({ userId: req.user.id, checkoutKey });
+    if (!result) throw error;
   }
+  res.status(201).json({ message: 'Đặt hàng thành công', order: result });
 };
-
-// @desc    Lấy lịch sử đơn hàng của người dùng
-// @route   GET /orders/:userId
-const getUserOrders = async (req, res) => {
-  try {
-    const orders = await Order.find({ userId: req.params.userId })
-      .populate('items.bookId')
-      .sort({ createdAt: -1 });
-    res.json(orders);
-  } catch (error) {
-    console.error('Lỗi lấy lịch sử đơn hàng:', error);
-    res.status(500).json({ error: 'Lỗi server' });
-  }
+exports.getUserOrders = async (req, res) => res.json((await Order.find({ userId: req.user.id }).populate('items.bookId').sort({ createdAt: -1 })).map(view));
+exports.getOrderDetail = async (req, res) => {
+  const order = await accessibleOrder(req);
+  await order.populate('items.bookId');
+  res.json(view(order));
 };
-
-// @desc    Lấy chi tiết một đơn hàng theo ID
-// @route   GET /orders/detail/:id
-const getOrderDetail = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id).populate('items.bookId');
-    if (!order) {
-      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
-    }
-    res.json(order);
-  } catch (error) {
-    console.error('Lỗi lấy chi tiết đơn hàng:', error);
-    res.status(500).json({ error: 'Lỗi server khi lấy chi tiết đơn hàng' });
-  }
+exports.getAllOrders = async (_req, res) => {
+  const orders = await Order.find().populate('items.bookId').sort({ createdAt: -1 });
+  const users = await User.find().select('username');
+  const names = Object.fromEntries(users.map(u => [u.id, u.username]));
+  res.json(orders.map(o => ({ ...view(o), customerName: names[o.userId] || o.recipientName || 'Khách hàng' })));
 };
-
-// @desc    Hủy đơn hàng (khi đơn ở trạng thái Chờ xác nhận / Đang xử lý)
-// @route   PUT /orders/:id/cancel
-const cancelOrder = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+async function changeStatus(req, status, userCancellation = false) {
+  let result;
+  await mongoose.connection.transaction(async session => {
+    const order = await accessibleOrder(req, session);
+    const current = normalize(order.status);
+    if (userCancellation && !pending.includes(order.status)) throw fail(400, 'Chỉ có thể hủy đơn đang chờ xác nhận');
+    if (current === status) { result = order; return; }
+    const allowed = { 'Chờ xác nhận': ['Đang vận chuyển', 'Đã hủy'], 'Đang vận chuyển': ['Hoàn thành', 'Đã hủy'], 'Hoàn thành': [], 'Đã hủy': [] };
+    if (!allowed[current]?.includes(status)) throw fail(400, 'Không thể chuyển trạng thái đơn hàng này');
+    if (status === 'Hoàn thành' && order.paymentStatus !== 'paid') throw fail(400, 'Cần xác nhận đã thu tiền trước khi hoàn thành đơn');
+    if (status === 'Đang vận chuyển' && order.paymentMethod === 'BANK_TRANSFER' && order.paymentStatus !== 'paid') throw fail(400, 'Cần xác nhận chuyển khoản trước khi giao hàng');
+    if (status === 'Đã hủy') {
+      for (const item of order.items) if (item.bookId) await Book.updateOne({ _id: item.bookId }, { $inc: { stock: item.quantity } }, { session });
+      if (order.paymentStatus === 'paid') order.paymentStatus = 'refund_pending';
     }
-
-    const cancelableStatuses = ['Chờ xác nhận', 'Đang xử lý'];
-    if (!cancelableStatuses.includes(order.status)) {
-      return res.status(400).json({
-        message: `Không thể hủy đơn hàng khi đang ở trạng thái "${order.status}".`,
-      });
-    }
-
-    // Hoàn trả lại số lượng tồn kho khi hủy đơn
-    if (order.items && order.items.length > 0) {
-      for (const item of order.items) {
-        if (item.bookId) {
-          await Book.findByIdAndUpdate(item.bookId, {
-            $inc: { stock: item.quantity },
-          });
-        }
-      }
-    }
-
-    order.status = 'Đã hủy';
-    await order.save();
-
-    res.json({ message: 'Hủy đơn hàng thành công', order });
-  } catch (error) {
-    console.error('Lỗi hủy đơn hàng:', error);
-    res.status(500).json({ error: 'Lỗi server khi hủy đơn hàng' });
-  }
-};
-
-// @desc    Lấy toàn bộ đơn hàng của tất cả khách hàng (Dành cho Admin)
-// @route   GET /orders
-const getAllOrders = async (req, res) => {
-  try {
-    const orders = await Order.find()
-      .populate('items.bookId')
-      .sort({ createdAt: -1 });
-
-    const users = await User.find({}, 'username');
-    const userMap = {};
-    users.forEach((u) => {
-      userMap[u._id.toString()] = u.username;
-    });
-
-    const formattedOrders = orders.map((order) => {
-      const orderObj = order.toObject();
-      orderObj.customerName = userMap[order.userId] || order.userId || 'Khách hàng';
-      return orderObj;
-    });
-
-    res.json(formattedOrders);
-  } catch (error) {
-    console.error('Lỗi lấy toàn bộ đơn hàng:', error);
-    res.status(500).json({ error: 'Lỗi server khi lấy danh sách đơn hàng' });
-  }
-};
-
-// @desc    Admin cập nhật trạng thái đơn hàng (Chờ xác nhận -> Đang vận chuyển -> Hoàn thành / Đã hủy)
-// @route   PUT /orders/:id/status
-const updateOrderStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const validStatuses = ['Chờ xác nhận', 'Đang vận chuyển', 'Hoàn thành', 'Đã hủy'];
-    if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        message: `Trạng thái không hợp lệ. Phải là: ${validStatuses.join(', ')}`,
-      });
-    }
-
-    const order = await Order.findById(id).populate('items.bookId');
-    if (!order) {
-      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
-    }
-
-    // Nếu chuyển sang Đã hủy và đơn trước đó chưa hủy -> Hoàn tồn kho
-    if (status === 'Đã hủy' && order.status !== 'Đã hủy') {
-      for (const item of order.items) {
-        if (item.bookId) {
-          await Book.findByIdAndUpdate(item.bookId._id, {
-            $inc: { stock: item.quantity },
-          });
-        }
-      }
-    }
-
     order.status = status;
-    await order.save();
-
-    res.json({ message: 'Cập nhật trạng thái đơn hàng thành công', order });
-  } catch (error) {
-    console.error('Lỗi cập nhật trạng thái đơn hàng:', error);
-    res.status(500).json({ error: 'Lỗi server khi cập nhật trạng thái đơn hàng' });
-  }
+    await order.save({ session });
+    result = order;
+  });
+  await result.populate('items.bookId');
+  return view(result);
+}
+exports.cancelOrder = async (req, res) => res.json({ message: 'Đã hủy đơn hàng', order: await changeStatus(req, 'Đã hủy', true) });
+exports.updateOrderStatus = async (req, res) => res.json({ message: 'Đã cập nhật đơn hàng', order: await changeStatus(req, req.body.status) });
+exports.updatePayment = async (req, res) => {
+  let result;
+  await mongoose.connection.transaction(async session => {
+    const order = await accessibleOrder(req, session);
+    const target = req.body.paymentStatus;
+    if (target === 'paid' && ['unpaid', 'pending'].includes(order.paymentStatus) && normalize(order.status) !== 'Đã hủy') {
+      order.paymentStatus = 'paid';
+      order.paidAt = new Date();
+    } else if (target === 'refunded' && order.paymentStatus === 'refund_pending' && normalize(order.status) === 'Đã hủy') {
+      order.paymentStatus = 'refunded';
+    } else throw fail(400, 'Không thể cập nhật thanh toán này');
+    await order.save({ session });
+    result = order;
+  });
+  await result.populate('items.bookId');
+  res.json({ message: 'Đã cập nhật thanh toán', order: view(result) });
 };
-
-// @desc    Lấy số liệu thống kê Dashboard tổng hợp (Dành cho Admin)
-// @route   GET /orders/dashboard/stats
-const getDashboardStats = async (req, res) => {
-  try {
-    const [orders, books] = await Promise.all([
-      Order.find().populate('items.bookId'),
-      Book.find(),
-    ]);
-
-    let totalRevenue = 0;
-    let pendingCount = 0;
-    let shippingCount = 0;
-    let completedCount = 0;
-    let cancelledCount = 0;
-
-    const bookSalesMap = {};
-
-    orders.forEach((ord) => {
-      if (ord.status === 'Hoàn thành' || ord.status === 'Đã giao') {
-        totalRevenue += ord.totalAmount || 0;
-        completedCount++;
-
-        // Thống kê sách bán chạy từ đơn hoàn thành
-        (ord.items || []).forEach((item) => {
-          if (item.bookId) {
-            const bId = item.bookId._id.toString();
-            if (!bookSalesMap[bId]) {
-              bookSalesMap[bId] = {
-                id: bId,
-                bookName: item.bookId.bookName,
-                coverImage: item.bookId.coverImage,
-                price: item.bookId.price,
-                totalSold: 0,
-              };
-            }
-            bookSalesMap[bId].totalSold += item.quantity || 1;
-          }
-        });
-      } else if (ord.status === 'Chờ xác nhận' || ord.status === 'Đang xử lý') {
-        pendingCount++;
-      } else if (ord.status === 'Đang vận chuyển' || ord.status === 'Đang giao') {
-        shippingCount++;
-      } else if (ord.status === 'Đã hủy') {
-        cancelledCount++;
-      }
-    });
-
-    const topSellingBooks = Object.values(bookSalesMap)
-      .sort((a, b) => b.totalSold - a.totalSold)
-      .slice(0, 5);
-
-    const totalStock = books.reduce((sum, b) => sum + (b.stock || 0), 0);
-
-    res.json({
-      totalRevenue,
-      totalOrders: orders.length,
-      pendingCount,
-      shippingCount,
-      completedCount,
-      cancelledCount,
-      totalBooks: books.length,
-      totalStock,
-      topSellingBooks,
-    });
-  } catch (error) {
-    console.error('Lỗi tính thống kê Dashboard:', error);
-    res.status(500).json({ error: 'Lỗi server khi tính thống kê Dashboard' });
+exports.getDashboardStats = async (_req, res) => {
+  const [orders, books] = await Promise.all([Order.find(), Book.find()]);
+  const completed = orders.filter(o => normalize(o.status) === 'Hoàn thành');
+  const paid = orders.filter(o => o.paymentStatus === 'paid');
+  const sales = {};
+  for (const order of completed) for (const i of order.items) {
+    const id = String(i.bookId || i._id);
+    sales[id] ||= { id, bookName: i.bookName || 'Sách', coverImage: i.coverImage, price: i.price, totalSold: 0 };
+    sales[id].totalSold += i.quantity;
   }
-};
-
-module.exports = {
-  checkout,
-  getUserOrders,
-  getOrderDetail,
-  cancelOrder,
-  getAllOrders,
-  updateOrderStatus,
-  getDashboardStats,
+  res.json({ totalRevenue: completed.filter(o => o.paymentStatus === 'paid').reduce((s, o) => s + o.totalAmount, 0), collectedAmount: paid.reduce((s, o) => s + o.totalAmount, 0), totalOrders: orders.length, pendingCount: orders.filter(o => normalize(o.status) === 'Chờ xác nhận').length, shippingCount: orders.filter(o => normalize(o.status) === 'Đang vận chuyển').length, completedCount: completed.length, cancelledCount: orders.filter(o => normalize(o.status) === 'Đã hủy').length, totalBooks: books.length, totalStock: books.reduce((s, b) => s + b.stock, 0), topSellingBooks: Object.values(sales).sort((a, b) => b.totalSold - a.totalSold).slice(0, 5) });
 };

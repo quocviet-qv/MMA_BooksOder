@@ -2,130 +2,28 @@ const Book = require('../models/Book');
 const Cart = require('../models/Cart');
 const Favorite = require('../models/Favorite');
 const Review = require('../models/Review');
-
-// @desc    Lấy danh sách tất cả sách kèm thống kê đánh giá, mô tả và tồn kho
-// @route   GET /books
-const getBooks = async (req, res) => {
-  try {
-    const books = await Book.find().sort({ createdAt: -1 });
-
-    // Lấy thống kê đánh giá trung bình theo từng cuốn sách
-    const reviewStats = await Review.aggregate([
-      {
-        $group: {
-          _id: '$bookId',
-          averageRating: { $avg: '$rating' },
-          totalReviews: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const statsMap = {};
-    reviewStats.forEach((stat) => {
-      statsMap[stat._id.toString()] = {
-        averageRating: Math.round(stat.averageRating * 10) / 10,
-        totalReviews: stat.totalReviews,
-      };
-    });
-
-    const formattedBooks = books.map((book) => {
-      const idStr = book._id.toString();
-      const stat = statsMap[idStr] || { averageRating: 0, totalReviews: 0 };
-      return {
-        id: idStr,
-        _id: idStr,
-        bookName: book.bookName,
-        author: book.author,
-        price: book.price,
-        category: book.category,
-        coverImage: book.coverImage,
-        description: book.description || '',
-        stock: book.stock !== undefined ? book.stock : 50,
-        averageRating: stat.averageRating,
-        totalReviews: stat.totalReviews,
-      };
-    });
-
-    res.json(formattedBooks);
-  } catch (error) {
-    console.error('Lỗi lấy danh sách sách:', error);
-    res.status(500).json({ error: 'Lỗi server' });
-  }
+const fail = (status, message) => Object.assign(new Error(message), { status });
+function input(body) {
+  const { bookName, author, category, coverImage, description = '' } = body;
+  const price = Number(body.price), stock = Number(body.stock ?? 50);
+  if ([bookName, author, category, coverImage].some(v => typeof v !== 'string' || !v.trim()) || typeof description !== 'string') throw fail(400, 'Vui lòng nhập tên sách, tác giả, thể loại và ảnh bìa');
+  if (![price, stock].every(Number.isSafeInteger) || price <= 0 || stock < 0) throw fail(400, 'Giá phải là số nguyên dương, tồn kho là số nguyên không âm');
+  if (!/^https?:\/\//i.test(coverImage) && !/^data:image\/(png|jpeg|webp|svg\+xml);base64,/i.test(coverImage)) throw fail(400, 'Ảnh bìa phải là URL ảnh hoặc ảnh tải lên hợp lệ');
+  return { bookName: bookName.trim(), author: author.trim(), category: category.trim(), coverImage: coverImage.trim(), description: description.trim(), price, stock };
+}
+exports.getBooks = async (_req, res) => {
+  const [books, stats] = await Promise.all([Book.find().sort({ createdAt: -1 }).lean(), Review.aggregate([{ $group: { _id: '$bookId', averageRating: { $avg: '$rating' }, totalReviews: { $sum: 1 } } }])]);
+  const ratings = Object.fromEntries(stats.map(s => [String(s._id), s]));
+  res.json(books.map(b => ({ ...b, id: String(b._id), averageRating: Math.round((ratings[b._id]?.averageRating || 0) * 10) / 10, totalReviews: ratings[b._id]?.totalReviews || 0 })));
 };
-
-// @desc    Thêm sách mới (kèm mô tả và số lượng tồn kho)
-// @route   POST /books
-const addBook = async (req, res) => {
-  try {
-    const { bookName, author, price, category, coverImage, description, stock } = req.body;
-    const newBook = new Book({
-      bookName,
-      author,
-      price: Number(price),
-      category: category || 'Khác',
-      coverImage,
-      description: description || '',
-      stock: stock !== undefined && stock !== '' ? Number(stock) : 50,
-    });
-    await newBook.save();
-
-    res.status(201).json({ message: 'Thêm sách thành công', newBook });
-  } catch (error) {
-    console.error('Lỗi thêm sách:', error);
-    res.status(500).json({ message: 'Lỗi server khi thêm sách', error });
-  }
+exports.addBook = async (req, res) => res.status(201).json({ message: 'Đã thêm sách', newBook: await Book.create(input(req.body)) });
+exports.updateBook = async (req, res) => {
+  const updatedBook = await Book.findByIdAndUpdate(req.params.id, { $set: input(req.body) }, { returnDocument: 'after', runValidators: true });
+  if (!updatedBook) throw fail(404, 'Không tìm thấy sách');
+  res.json({ message: 'Đã cập nhật sách', updatedBook });
 };
-
-// @desc    Cập nhật thông tin sách
-// @route   PUT /books/:id
-const updateBook = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = { ...req.body };
-    if (updateData.price) updateData.price = Number(updateData.price);
-    if (updateData.stock !== undefined && updateData.stock !== '') {
-      updateData.stock = Number(updateData.stock);
-    }
-
-    const updatedBook = await Book.findByIdAndUpdate(id, updateData, { new: true });
-
-    if (!updatedBook) {
-      return res.status(404).json({ message: 'Không tìm thấy sách' });
-    }
-
-    res.status(200).json({ message: 'Cập nhật thành công', updatedBook });
-  } catch (error) {
-    console.error('Lỗi sửa sách:', error);
-    res.status(500).json({ message: 'Lỗi server khi cập nhật', error });
-  }
-};
-
-// @desc    Xóa sách và dọn dẹp các bản ghi liên quan (Cart, Favorite, Review)
-// @route   DELETE /books/:id
-const deleteBook = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deletedBook = await Book.findByIdAndDelete(id);
-
-    if (!deletedBook) {
-      return res.status(404).json({ message: 'Không tìm thấy sách' });
-    }
-
-    // Cascade delete các dữ liệu liên quan
-    await Cart.deleteMany({ bookId: id });
-    await Favorite.deleteMany({ bookId: id });
-    await Review.deleteMany({ bookId: id });
-
-    res.status(200).json({ message: 'Xóa sách thành công' });
-  } catch (error) {
-    console.error('Lỗi xóa sách:', error);
-    res.status(500).json({ message: 'Lỗi server khi xóa', error });
-  }
-};
-
-module.exports = {
-  getBooks,
-  addBook,
-  updateBook,
-  deleteBook,
+exports.deleteBook = async (req, res) => {
+  if (!await Book.findByIdAndDelete(req.params.id)) throw fail(404, 'Không tìm thấy sách');
+  await Promise.all([Cart.deleteMany({ bookId: req.params.id }), Favorite.deleteMany({ bookId: req.params.id }), Review.deleteMany({ bookId: req.params.id })]);
+  res.json({ message: 'Đã xóa sách' });
 };

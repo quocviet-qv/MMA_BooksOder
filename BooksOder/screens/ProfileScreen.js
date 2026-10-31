@@ -1,5 +1,6 @@
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL, getAuthHeaders } from '../src/constants/api';
+import { API_URL, getAuthHeaders, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -34,7 +35,7 @@ export default function ProfileScreen({ navigation }) {
   const [submittingPassword, setSubmittingPassword] = useState(false);
 
   // Tải thống kê đơn hàng của người dùng
-  const loadUserStats = async () => {
+  const loadUserStats = useCallback(async () => {
     if (!userId) return;
     try {
       const res = await fetch(`${API_URL}/orders/${userId}`);
@@ -45,11 +46,10 @@ export default function ProfileScreen({ navigation }) {
     } catch (error) {
       console.log('Không thể tải thống kê đơn hàng:', error.message);
     }
-  };
-
-  useEffect(() => {
-    loadUserStats();
   }, [userId]);
+
+
+  useFocusEffect(useCallback(() => { loadUserStats(); }, [loadUserStats]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -95,7 +95,7 @@ export default function ProfileScreen({ navigation }) {
       } else {
         Alert.alert(t('common.error'), data.message || t('common.error'));
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert(t('common.error'), t('common.networkError'));
     } finally {
       setSubmittingPassword(false);
