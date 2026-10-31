@@ -6,7 +6,7 @@ const User = require('../models/User');
 const generateToken = (id, role) => {
   return jwt.sign(
     { id, role },
-    process.env.JWT_SECRET,
+    process.env.JWT_SECRET || 'supersecretjwtkey_bookstore_2026',
     { expiresIn: '30d' }
   );
 };

@@ -1,10 +1,12 @@
 import React from 'react';
 import { Stack } from 'expo-router';
+import { LinkPreviewContextProvider } from 'expo-router/build/link/preview/LinkPreviewContext';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { CartProvider } from '../context/CartContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { AlertProvider } from '../context/AlertContext';
+
 function Routes() {
   const { isLoading, isLoggedIn, userRole } = useAuth();
   if (isLoading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color="#B91C1C" /></View>;
@@ -16,6 +18,19 @@ function Routes() {
     <Stack.Protected guard={isLoggedIn}><Stack.Screen name="order-detail" options={{ headerShown: true, title: 'Chi tiết đơn hàng' }} /></Stack.Protected>
   </Stack>;
 }
+
 export default function Layout() {
-  return <LanguageProvider><AuthProvider><CartProvider><AlertProvider><Routes /></AlertProvider></CartProvider></AuthProvider></LanguageProvider>;
+  return (
+    <LinkPreviewContextProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <CartProvider>
+            <AlertProvider>
+              <Routes />
+            </AlertProvider>
+          </CartProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </LinkPreviewContextProvider>
+  );
 }

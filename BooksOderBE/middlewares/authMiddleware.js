@@ -13,7 +13,7 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(
         token,
-        process.env.JWT_SECRET
+        process.env.JWT_SECRET || 'supersecretjwtkey_bookstore_2026'
       );
 
       req.user = await User.findById(decoded.id).select('-password');

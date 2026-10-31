@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL, apiFetch as fetch } from '../src/constants/api';
