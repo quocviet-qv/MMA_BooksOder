@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+import { AlertProvider } from './src/context/AlertContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { CartProvider, useCart } from './src/context/CartContext';
 import { LanguageProvider, useLanguage } from './src/context/LanguageContext';
@@ -150,7 +151,13 @@ function RootNavigator() {
             <Stack.Screen
               name="AdminForm"
               component={AdminFormScreen}
-              options={{ headerShown: true, title: t('headers.bookForm') }}
+              options={{
+                headerShown: true,
+                title: t('headers.bookForm'),
+                headerTintColor: '#B91C1C',
+                headerTitleStyle: { color: '#0F172A', fontWeight: '800' },
+                headerStyle: { backgroundColor: '#F8F9FA' },
+              }}
             />
           </>
         ) : (
@@ -191,7 +198,9 @@ export default function App() {
     <LanguageProvider>
       <AuthProvider>
         <CartProvider>
-          <RootNavigator />
+          <AlertProvider>
+            <RootNavigator />
+          </AlertProvider>
         </CartProvider>
       </AuthProvider>
     </LanguageProvider>

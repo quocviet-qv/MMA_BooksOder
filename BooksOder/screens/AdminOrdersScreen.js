@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,9 +10,11 @@ import {
   RefreshControl,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_URL } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
@@ -24,14 +25,14 @@ const FILTER_TABS = [
   'Chờ xác nhận',
   'Đang vận chuyển',
   'Hoàn thành',
-  'Đã hủy'
+  'Đã hủy',
 ];
 
 const ALL_STATUSES = [
   'Chờ xác nhận',
   'Đang vận chuyển',
   'Hoàn thành',
-  'Đã hủy'
+  'Đã hủy',
 ];
 
 export default function AdminOrdersScreen({ navigation }) {
@@ -40,6 +41,7 @@ export default function AdminOrdersScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('Tất cả');
+  const [searchQuery, setSearchQuery] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
 
   // Modal đổi trạng thái tùy chọn
@@ -76,13 +78,13 @@ export default function AdminOrdersScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert('Xác nhận', 'Bạn có muốn đăng xuất khỏi quyền Admin?', [
+    Alert.alert('Xác nhận', 'Bạn có muốn đăng xuất khỏi quyền Quản trị viên?', [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Đăng xuất',
         style: 'destructive',
         onPress: () => logout(),
-      }
+      },
     ]);
   };
 
@@ -101,31 +103,41 @@ export default function AdminOrdersScreen({ navigation }) {
         return {
           badgeStyle: [styles.statusBadge, styles.badgePending],
           textStyle: [styles.statusText, styles.statusPendingText],
-          label: 'Chờ xác nhận'
+          iconName: 'time-outline',
+          iconColor: '#D97706',
+          label: 'Chờ xác nhận',
         };
       case 'Đang vận chuyển':
         return {
           badgeStyle: [styles.statusBadge, styles.badgeShipping],
           textStyle: [styles.statusText, styles.statusShippingText],
-          label: 'Đang vận chuyển'
+          iconName: 'bicycle-outline',
+          iconColor: '#2563EB',
+          label: 'Đang vận chuyển',
         };
       case 'Hoàn thành':
         return {
           badgeStyle: [styles.statusBadge, styles.badgeCompleted],
           textStyle: [styles.statusText, styles.statusCompletedText],
-          label: 'Hoàn thành'
+          iconName: 'checkmark-circle-outline',
+          iconColor: '#059669',
+          label: 'Hoàn thành',
         };
       case 'Đã hủy':
         return {
           badgeStyle: [styles.statusBadge, styles.badgeCancelled],
           textStyle: [styles.statusText, styles.statusCancelledText],
-          label: 'Đã hủy'
+          iconName: 'close-circle-outline',
+          iconColor: '#DC2626',
+          label: 'Đã hủy',
         };
       default:
         return {
           badgeStyle: [styles.statusBadge, styles.badgePending],
           textStyle: [styles.statusText, styles.statusPendingText],
-          label: status
+          iconName: 'help-circle-outline',
+          iconColor: '#D97706',
+          label: status,
         };
     }
   };
@@ -137,23 +149,22 @@ export default function AdminOrdersScreen({ navigation }) {
       const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        Alert.alert('Thành công', `Đơn hàng đã được chuyển sang trạng thái "${newStatus}".`);
-        // Cập nhật trạng thái trực tiếp trong mảng local
-        setOrders(prev =>
-          prev.map(o => (o._id === orderId ? { ...o, status: newStatus } : o))
+        Alert.alert('Thành công 🎉', `Đơn hàng đã được chuyển sang trạng thái "${newStatus}".`);
+        setOrders((prev) =>
+          prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o))
         );
         setModalVisible(false);
       } else {
-        Alert.alert('Lỗi', data.message || 'Không thể cập nhật trạng thái đơn.');
+        Alert.alert('Thất bại', data.message || 'Không thể cập nhật trạng thái đơn.');
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ.');
+      Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
     } finally {
       setUpdatingId(null);
     }
@@ -164,15 +175,45 @@ export default function AdminOrdersScreen({ navigation }) {
     setModalVisible(true);
   };
 
-  const filteredOrders = orders.filter(order => {
-    if (activeTab === 'Tất cả') return true;
-    return normalizeStatus(order.status) === activeTab;
-  });
+  // Thống kê nhanh số lượng theo từng trạng thái
+  const stats = useMemo(() => {
+    let pending = 0;
+    let shipping = 0;
+    let completed = 0;
+    let cancelled = 0;
 
-  // Đếm số đơn chờ xác nhận để hiển thị huy hiệu
-  const pendingCount = orders.filter(
-    o => normalizeStatus(o.status) === 'Chờ xác nhận'
-  ).length;
+    for (const o of orders) {
+      const norm = normalizeStatus(o.status);
+      if (norm === 'Chờ xác nhận') pending++;
+      else if (norm === 'Đang vận chuyển') shipping++;
+      else if (norm === 'Hoàn thành') completed++;
+      else if (norm === 'Đã hủy') cancelled++;
+    }
+
+    return { pending, shipping, completed, cancelled };
+  }, [orders]);
+
+  // Lọc theo Tab và Search
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const norm = normalizeStatus(order.status);
+      const matchTab = activeTab === 'Tất cả' || norm === activeTab;
+      if (!matchTab) return false;
+
+      const query = searchQuery.toLowerCase().trim();
+      if (!query) return true;
+
+      const orderCode = (order._id || '').toLowerCase();
+      const customer = (order.customerName || '').toLowerCase();
+      const address = (order.address || '').toLowerCase();
+
+      return (
+        orderCode.includes(query) ||
+        customer.includes(query) ||
+        address.includes(query)
+      );
+    });
+  }, [orders, activeTab, searchQuery]);
 
   const renderOrderItem = ({ item }) => {
     const statusConfig = getStatusBadgeConfig(item.status);
@@ -187,11 +228,11 @@ export default function AdminOrdersScreen({ navigation }) {
           month: '2-digit',
           year: 'numeric',
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
         })
       : '';
     const orderCode = item._id ? item._id.slice(-6).toUpperCase() : 'N/A';
-    const validItems = (item.items || []).filter(i => i && i.bookId);
+    const validItems = (item.items || []).filter((i) => i && i.bookId);
 
     return (
       <View style={styles.orderCard}>
@@ -202,6 +243,7 @@ export default function AdminOrdersScreen({ navigation }) {
             {dateStr ? <Text style={styles.orderDateText}>{dateStr}</Text> : null}
           </View>
           <View style={statusConfig.badgeStyle}>
+            <Ionicons name={statusConfig.iconName} size={14} color={statusConfig.iconColor} />
             <Text style={statusConfig.textStyle}>{statusConfig.label}</Text>
           </View>
         </View>
@@ -209,15 +251,15 @@ export default function AdminOrdersScreen({ navigation }) {
         {/* Khối thông tin khách hàng & Địa chỉ */}
         <View style={styles.customerBox}>
           <View style={styles.customerRow}>
-            <Ionicons name="person-circle-outline" size={18} color="#B91C1C" />
+            <Ionicons name="person-circle" size={18} color="#B91C1C" />
             <Text style={styles.customerName}>
-              Khách hàng: {item.customerName || 'Khách vãng lai'}
+              {item.customerName || 'Khách vãng lai'}
             </Text>
           </View>
           <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={16} color="#666" style={{ marginTop: 2 }} />
+            <Ionicons name="location-outline" size={15} color="#64748B" style={{ marginTop: 2 }} />
             <Text style={styles.addressText} numberOfLines={2}>
-              {item.address || 'Không có địa chỉ'}
+              {item.address || 'Không có địa chỉ giao hàng'}
             </Text>
           </View>
         </View>
@@ -229,7 +271,9 @@ export default function AdminOrdersScreen({ navigation }) {
             return (
               <View key={orderItem._id || idx} style={styles.itemRow}>
                 <Image
-                  source={{ uri: book.coverImage || 'https://via.placeholder.com/150' }}
+                  source={{
+                    uri: book.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200',
+                  }}
                   style={styles.itemCover}
                 />
                 <View style={styles.itemInfo}>
@@ -237,7 +281,7 @@ export default function AdminOrdersScreen({ navigation }) {
                     {book.bookName || 'Sách'}
                   </Text>
                   <View style={styles.itemMeta}>
-                    <Text style={styles.itemQty}>SL: ×{orderItem.quantity}</Text>
+                    <Text style={styles.itemQty}>SL: ×{orderItem.quantity || 1}</Text>
                     <Text style={styles.itemPrice}>
                       {((orderItem.price || 0) * (orderItem.quantity || 1)).toLocaleString('vi-VN')} đ
                     </Text>
@@ -251,7 +295,9 @@ export default function AdminOrdersScreen({ navigation }) {
         {/* Footer: Tổng tiền & Các nút hành động duyệt */}
         <View style={styles.cardFooter}>
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tổng đơn ({validItems.length} sản phẩm):</Text>
+            <Text style={styles.totalLabel}>
+              Tổng thanh toán ({validItems.length} đầu sách):
+            </Text>
             <Text style={styles.totalAmount}>
               {(item.totalAmount || 0).toLocaleString('vi-VN')} đ
             </Text>
@@ -262,17 +308,19 @@ export default function AdminOrdersScreen({ navigation }) {
             {/* Nút mở modal đổi trạng thái thủ công */}
             <TouchableOpacity
               style={styles.btnChangeStatus}
+              activeOpacity={0.8}
               onPress={() => openStatusModal(item)}
             >
-              <Ionicons name="options-outline" size={15} color="#B91C1C" />
+              <Ionicons name="options-outline" size={15} color="#334155" />
               <Text style={styles.btnChangeStatusText}>Đổi trạng thái</Text>
             </TouchableOpacity>
 
-            {/* Nếu Chờ xác nhận -> Nút Duyệt & Giao */}
+            {/* Nếu Chờ xác nhận -> Nút Hủy đơn & Nút Duyệt & Giao */}
             {isPending && (
               <>
                 <TouchableOpacity
                   style={styles.btnCancel}
+                  activeOpacity={0.8}
                   disabled={isUpdating}
                   onPress={() =>
                     Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn hủy đơn hàng này?', [
@@ -280,8 +328,8 @@ export default function AdminOrdersScreen({ navigation }) {
                       {
                         text: 'Hủy đơn',
                         style: 'destructive',
-                        onPress: () => handleUpdateStatus(item._id, 'Đã hủy')
-                      }
+                        onPress: () => handleUpdateStatus(item._id, 'Đã hủy'),
+                      },
                     ])
                   }
                 >
@@ -290,14 +338,15 @@ export default function AdminOrdersScreen({ navigation }) {
 
                 <TouchableOpacity
                   style={styles.btnApprove}
+                  activeOpacity={0.85}
                   disabled={isUpdating}
                   onPress={() => handleUpdateStatus(item._id, 'Đang vận chuyển')}
                 >
                   {isUpdating ? (
-                    <ActivityIndicator size="small" color="#FFF" />
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <>
-                      <Ionicons name="bicycle" size={16} color="#FFF" />
+                      <Ionicons name="bicycle" size={15} color="#FFFFFF" />
                       <Text style={styles.btnApproveText}>Duyệt & Giao</Text>
                     </>
                   )}
@@ -309,14 +358,15 @@ export default function AdminOrdersScreen({ navigation }) {
             {isShipping && (
               <TouchableOpacity
                 style={styles.btnComplete}
+                activeOpacity={0.85}
                 disabled={isUpdating}
                 onPress={() => handleUpdateStatus(item._id, 'Hoàn thành')}
               >
                 {isUpdating ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-done" size={16} color="#FFF" />
+                    <Ionicons name="checkmark-done" size={16} color="#FFFFFF" />
                     <Text style={styles.btnCompleteText}>Đã giao hàng</Text>
                   </>
                 )}
@@ -329,35 +379,110 @@ export default function AdminOrdersScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header Admin */}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* 1. HEADER ADMIN */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Quản lý đơn hàng</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.titleRow}>
+            <Ionicons name="receipt" size={24} color="#B91C1C" />
+            <Text style={styles.headerTitle}>Quản lý đơn hàng</Text>
+          </View>
           <Text style={styles.headerSubtitle}>
-            {pendingCount > 0
-              ? `⚡ Có ${pendingCount} đơn hàng mới cần duyệt`
-              : 'Tất cả đơn hàng đã được cập nhật'}
+            {orders.length} đơn hàng trong hệ thống
           </Text>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={26} color="#B91C1C" />
+
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          activeOpacity={0.8}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={22} color="#B91C1C" />
         </TouchableOpacity>
       </View>
 
-      {/* Tabs lọc trạng thái */}
+      {/* 2. CHIP THỐNG KÊ NHANH (KPI ROW) */}
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.statsScroll}
+        >
+          <TouchableOpacity
+            style={[styles.statChip, activeTab === 'Chờ xác nhận' && styles.statChipActive]}
+            activeOpacity={0.7}
+            onPress={() => setActiveTab('Chờ xác nhận')}
+          >
+            <View style={[styles.statDot, { backgroundColor: '#D97706' }]} />
+            <Text style={styles.statText}>Chờ duyệt:</Text>
+            <Text style={[styles.statCount, { color: '#D97706' }]}>{stats.pending}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.statChip, activeTab === 'Đang vận chuyển' && styles.statChipActive]}
+            activeOpacity={0.7}
+            onPress={() => setActiveTab('Đang vận chuyển')}
+          >
+            <View style={[styles.statDot, { backgroundColor: '#2563EB' }]} />
+            <Text style={styles.statText}>Đang giao:</Text>
+            <Text style={[styles.statCount, { color: '#2563EB' }]}>{stats.shipping}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.statChip, activeTab === 'Hoàn thành' && styles.statChipActive]}
+            activeOpacity={0.7}
+            onPress={() => setActiveTab('Hoàn thành')}
+          >
+            <View style={[styles.statDot, { backgroundColor: '#059669' }]} />
+            <Text style={styles.statText}>Hoàn thành:</Text>
+            <Text style={[styles.statCount, { color: '#059669' }]}>{stats.completed}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.statChip, activeTab === 'Đã hủy' && styles.statChipActive]}
+            activeOpacity={0.7}
+            onPress={() => setActiveTab('Đã hủy')}
+          >
+            <View style={[styles.statDot, { backgroundColor: '#DC2626' }]} />
+            <Text style={styles.statText}>Đã hủy:</Text>
+            <Text style={[styles.statCount, { color: '#DC2626' }]}>{stats.cancelled}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* 3. THANH TÌM KIẾM ĐƠN HÀNG */}
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={18} color="#94A3B8" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm theo mã đơn #ID, tên khách hàng, địa chỉ..."
+            placeholderTextColor="#94A3B8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity style={styles.clearBtn} onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* 4. TABS LỌC TRẠNG THÁI */}
       <View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScroll}
         >
-          {FILTER_TABS.map(tab => {
+          {FILTER_TABS.map((tab) => {
             const isActive = activeTab === tab;
             return (
               <TouchableOpacity
                 key={tab}
                 style={[styles.filterTab, isActive && styles.filterTabActive]}
+                activeOpacity={0.8}
                 onPress={() => setActiveTab(tab)}
               >
                 <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
@@ -369,28 +494,30 @@ export default function AdminOrdersScreen({ navigation }) {
         </ScrollView>
       </View>
 
-      {/* Nội dung danh sách đơn hàng */}
+      {/* 5. DANH SÁCH ĐƠN HÀNG */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#B91C1C" />
-          <Text style={styles.loadingText}>Đang tải toàn bộ đơn hàng...</Text>
+          <Text style={styles.loadingText}>Đang tải danh sách đơn hàng...</Text>
         </View>
       ) : filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconCircle}>
-            <Ionicons name="file-tray-outline" size={44} color="#A89F91" />
+            <Ionicons name="file-tray-outline" size={38} color="#B91C1C" />
           </View>
           <Text style={styles.emptyTitle}>Không có đơn hàng nào</Text>
           <Text style={styles.emptySubtitle}>
-            {activeTab === 'Tất cả'
+            {searchQuery
+              ? 'Không tìm thấy đơn hàng nào khớp với từ khóa tìm kiếm.'
+              : activeTab === 'Tất cả'
               ? 'Hiện chưa có khách hàng nào đặt mua sách.'
-              : `Không tìm thấy đơn hàng nào ở trạng thái "${activeTab}".`}
+              : `Không có đơn hàng nào đang ở trạng thái "${activeTab}".`}
           </Text>
         </View>
       ) : (
         <FlatList
           data={filteredOrders}
-          keyExtractor={item => item._id}
+          keyExtractor={(item) => item._id}
           renderItem={renderOrderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -405,7 +532,7 @@ export default function AdminOrdersScreen({ navigation }) {
         />
       )}
 
-      {/* MODAL ĐỔI TRẠNG THÁI THỦ CÔNG */}
+      {/* 6. MODAL BOTTOM SHEET ĐỔI TRẠNG THÁI THỦ CÔNG */}
       <Modal
         visible={modalVisible}
         transparent
@@ -417,34 +544,35 @@ export default function AdminOrdersScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chuyển trạng thái đơn hàng</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
 
             {selectedOrder && (
               <View>
-                <Text style={{ fontSize: 13, color: '#666', marginBottom: 14 }}>
+                <Text style={styles.modalSubtitle}>
                   Đơn hàng #{selectedOrder._id.slice(-6).toUpperCase()} của{' '}
-                  <Text style={{ fontWeight: 'bold', color: '#1A1A1A' }}>
-                    {selectedOrder.customerName}
+                  <Text style={styles.modalSubtitleHighlight}>
+                    {selectedOrder.customerName || 'Khách'}
                   </Text>
                 </Text>
 
-                {ALL_STATUSES.map(st => {
+                {ALL_STATUSES.map((st) => {
                   const isCurrent = normalizeStatus(selectedOrder.status) === st;
                   return (
                     <TouchableOpacity
                       key={st}
                       style={[
                         styles.statusOptionItem,
-                        isCurrent && styles.statusOptionActive
+                        isCurrent && styles.statusOptionActive,
                       ]}
+                      activeOpacity={0.8}
                       onPress={() => handleUpdateStatus(selectedOrder._id, st)}
                     >
                       <Text
                         style={[
                           styles.statusOptionText,
-                          isCurrent && { color: '#B91C1C', fontWeight: 'bold' }
+                          isCurrent && styles.statusOptionTextActive,
                         ]}
                       >
                         {st}
@@ -452,7 +580,7 @@ export default function AdminOrdersScreen({ navigation }) {
                       {isCurrent ? (
                         <Ionicons name="checkmark-circle" size={20} color="#B91C1C" />
                       ) : (
-                        <Ionicons name="chevron-forward" size={18} color="#AAA" />
+                        <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                       )}
                     </TouchableOpacity>
                   );
@@ -462,6 +590,6 @@ export default function AdminOrdersScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
