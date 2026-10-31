@@ -151,7 +151,8 @@ app.post('/checkout', async (req, res) => {
       userId,
       items: orderItems,
       totalAmount,
-      address
+      address,
+      status: 'Chờ xác nhận'
     });
     await newOrder.save();
 
@@ -173,6 +174,43 @@ app.get('/orders/:userId', async (req, res) => {
     res.json(orders);
   } catch (error) {
     res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
+// 3. Lấy chi tiết một đơn hàng theo ID
+app.get('/orders/detail/:id', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('items.bookId');
+    if (!order) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+    }
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi server khi lấy chi tiết đơn hàng' });
+  }
+});
+
+// 4. Hủy đơn hàng (dành cho User khi đơn còn ở trạng thái Chờ xác nhận / Đang xử lý)
+app.put('/orders/:id/cancel', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+    }
+
+    const cancelableStatuses = ['Chờ xác nhận', 'Đang xử lý'];
+    if (!cancelableStatuses.includes(order.status)) {
+      return res.status(400).json({ 
+        message: `Không thể hủy đơn hàng khi đang ở trạng thái "${order.status}".` 
+      });
+    }
+
+    order.status = 'Đã hủy';
+    await order.save();
+
+    res.json({ message: 'Hủy đơn hàng thành công', order });
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi server khi hủy đơn hàng' });
   }
 });
 

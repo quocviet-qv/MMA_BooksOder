@@ -30,7 +30,14 @@ export default function CheckoutScreen({ route, navigation }) {
 
       if (response.ok) {
         Alert.alert('Thành công 🎉', 'Đơn hàng của bạn đã được đặt thành công!', [
-          { text: 'Về trang chủ', onPress: () => navigation.navigate('Main', { screen: 'Home' }) }
+          { 
+            text: 'Xem đơn hàng', 
+            onPress: () => navigation.navigate('Main', { screen: 'Orders' }) 
+          },
+          { 
+            text: 'Về trang chủ', 
+            onPress: () => navigation.navigate('Main', { screen: 'Home' }) 
+          }
         ]);
       } else {
         Alert.alert('Lỗi thanh toán', data.message || 'Có lỗi xảy ra');

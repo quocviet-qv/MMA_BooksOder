@@ -13,7 +13,9 @@ import CartScreen from './screens/CartScreen';
 import DetailScreen from './screens/DetailScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
 import HomeScreen from './screens/HomeScreen';
-import CheckoutScreen from './screens/CheckoutScreen'; // <-- Đã import màn hình Thanh toán mới
+import CheckoutScreen from './screens/CheckoutScreen';
+import OrdersScreen from './screens/OrdersScreen';
+import OrderDetailScreen from './screens/OrderDetailScreen';
 
 // Import các màn hình Xác thực
 import LoginScreen from './screens/LoginScreen';
@@ -22,7 +24,7 @@ import RegisterScreen from './screens/RegisterScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// 1. Cụm 3 Tab cho User bình thường (Người mua sách)
+// 1. Cụm Tab cho User bình thường (Người mua sách)
 function MainTabs({ route }) {
   const { setIsLoggedIn, setUserRole } = route.params || {};
   return (
@@ -37,6 +39,8 @@ function MainTabs({ route }) {
             iconName = focused ? 'heart' : 'heart-outline';
           } else if (route.name === 'Cart') {
             iconName = focused ? 'bag-handle' : 'bag-handle-outline';
+          } else if (route.name === 'Orders') {
+            iconName = focused ? 'receipt' : 'receipt-outline';
           }
           
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -49,6 +53,7 @@ function MainTabs({ route }) {
       <Tab.Screen name="Home" component={HomeScreen} initialParams={{ setIsLoggedIn, setUserRole }} options={{ title: 'Trang chủ' }} />
       <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'Yêu thích' }} />
       <Tab.Screen name="Cart" component={CartScreen} options={{ title: 'Giỏ hàng' }} />
+      <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: 'Đơn hàng' }} />
     </Tab.Navigator>
   );
 }
@@ -129,6 +134,17 @@ export default function App() {
             <Stack.Screen name="Chi tiết" component={DetailScreen} options={{ headerShown: true }} />
             {/* Đã thêm màn hình Checkout vào luồng User */}
             <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ headerShown: true, title: 'Thanh toán' }} />
+            <Stack.Screen 
+              name="OrderDetail" 
+              component={OrderDetailScreen} 
+              options={{ 
+                headerShown: true, 
+                title: 'Chi tiết đơn hàng',
+                headerTintColor: '#C5532A',
+                headerTitleStyle: { color: '#1A1A1A', fontWeight: 'bold' },
+                headerStyle: { backgroundColor: '#FAF7F2' }
+              }} 
+            />
           </>
         )}
       </Stack.Navigator>
