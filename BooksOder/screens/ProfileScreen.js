@@ -15,11 +15,13 @@ import {
 import { API_URL, getAuthHeaders } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/ProfileScreenStyles';
 
 export default function ProfileScreen({ navigation }) {
-  const { userId, userName, userRole, userToken, logout } = useAuth();
+  const { userId, userName, userRole, logout } = useAuth();
   const { cartCount } = useCart();
+  const { t, language, toggleLanguage } = useLanguage();
 
   const [orderCount, setOrderCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -58,15 +60,15 @@ export default function ProfileScreen({ navigation }) {
   // Xử lý đổi mật khẩu
   const handleChangePassword = async () => {
     if (!oldPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      return Alert.alert('Thông báo', 'Vui lòng điền đầy đủ các thông tin mật khẩu.');
+      return Alert.alert(t('common.warning'), t('auth.missingInfo'));
     }
 
     if (newPassword.length < 6) {
-      return Alert.alert('Thông báo', 'Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return Alert.alert(t('common.warning'), t('profile.newPassLabel'));
     }
 
     if (newPassword !== confirmPassword) {
-      return Alert.alert('Lỗi xác nhận', 'Mật khẩu mới và xác nhận mật khẩu không trùng khớp.');
+      return Alert.alert(t('common.error'), t('auth.passwordMismatch'));
     }
 
     setSubmittingPassword(true);
@@ -85,16 +87,16 @@ export default function ProfileScreen({ navigation }) {
       const data = await res.json();
 
       if (res.ok) {
-        Alert.alert('Thành công', data.message || 'Đổi mật khẩu thành công!');
+        Alert.alert(t('common.success'), data.message || t('common.success'));
         setOldPassword('');
         setNewPassword('');
         setConfirmPassword('');
         setModalVisible(false);
       } else {
-        Alert.alert('Thất bại', data.message || 'Không thể đổi mật khẩu.');
+        Alert.alert(t('common.error'), data.message || t('common.error'));
       }
     } catch (error) {
-      Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
+      Alert.alert(t('common.error'), t('common.networkError'));
     } finally {
       setSubmittingPassword(false);
     }
@@ -102,11 +104,11 @@ export default function ProfileScreen({ navigation }) {
 
   const handleLogoutPress = () => {
     Alert.alert(
-      'Xác nhận đăng xuất',
-      'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?',
+      t('common.logout'),
+      t('common.logoutConfirm'),
       [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Đăng xuất', style: 'destructive', onPress: () => logout() },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.logout'), style: 'destructive', onPress: () => logout() },
       ],
       { cancelable: true }
     );
@@ -118,17 +120,17 @@ export default function ProfileScreen({ navigation }) {
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <Text style={styles.headerTitle}>Hồ sơ cá nhân</Text>
+        <Text style={styles.headerTitle}>{t('profile.title')}</Text>
 
         {/* Thẻ thông tin cá nhân */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Ionicons name="person" size={40} color="#C5532A" />
           </View>
-          <Text style={styles.userName}>{userName || 'Khách hàng'}</Text>
+          <Text style={styles.userName}>{userName || 'User'}</Text>
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>
-              {userRole === 'admin' ? 'Quản trị viên' : 'Khách hàng thân thiết'}
+              {userRole === 'admin' ? t('profile.adminRole') : t('profile.vipCustomer')}
             </Text>
           </View>
           <Text style={styles.userIdText}>ID: {userId}</Text>
@@ -143,7 +145,7 @@ export default function ProfileScreen({ navigation }) {
           >
             <Ionicons name="receipt-outline" size={24} color="#C5532A" />
             <Text style={styles.statNumber}>{orderCount}</Text>
-            <Text style={styles.statLabel}>Đơn mua</Text>
+            <Text style={styles.statLabel}>{t('profile.ordersCount')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -153,7 +155,7 @@ export default function ProfileScreen({ navigation }) {
           >
             <Ionicons name="bag-handle-outline" size={24} color="#C5532A" />
             <Text style={styles.statNumber}>{cartCount}</Text>
-            <Text style={styles.statLabel}>Giỏ hàng</Text>
+            <Text style={styles.statLabel}>{t('profile.cartCount')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -162,14 +164,34 @@ export default function ProfileScreen({ navigation }) {
             activeOpacity={0.7}
           >
             <Ionicons name="heart-outline" size={24} color="#C5532A" />
-            <Text style={styles.statNumber}>Đã lưu</Text>
-            <Text style={styles.statLabel}>Yêu thích</Text>
+            <Text style={styles.statNumber}>-</Text>
+            <Text style={styles.statLabel}>{t('profile.savedCount')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Các tác vụ tiện ích & bảo mật */}
-        <Text style={styles.sectionTitle}>Cài đặt tài khoản & Bảo mật</Text>
+        <Text style={styles.sectionTitle}>{t('profile.settingsSection')}</Text>
         <View style={styles.actionCard}>
+          {/* Chuyển đổi ngôn ngữ Tiếng Việt / Tiếng Anh */}
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={toggleLanguage}
+            activeOpacity={0.7}
+          >
+            <View style={styles.actionItemLeft}>
+              <View style={[styles.actionIconBox, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="language-outline" size={20} color="#D97706" />
+              </View>
+              <Text style={styles.actionItemText}>{t('profile.switchLanguage')}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#C5532A', marginRight: 6 }}>
+                {language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇬🇧 English'}
+              </Text>
+              <Ionicons name="swap-horizontal" size={16} color="#9CA3AF" />
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.actionItem}
             onPress={() => setModalVisible(true)}
@@ -179,7 +201,7 @@ export default function ProfileScreen({ navigation }) {
               <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
                 <Ionicons name="key-outline" size={20} color="#2563EB" />
               </View>
-              <Text style={styles.actionItemText}>Đổi mật khẩu</Text>
+              <Text style={styles.actionItemText}>{t('profile.changePassword')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
           </TouchableOpacity>
@@ -187,7 +209,7 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity
             style={styles.actionItem}
             onPress={() =>
-              Alert.alert('Chính sách bảo mật', 'Dữ liệu cá nhân và mật khẩu của bạn được mã hóa an toàn theo tiêu chuẩn bcrypt và JWT.')
+              Alert.alert(t('profile.privacyPolicy'), t('profile.privacyDesc'))
             }
             activeOpacity={0.7}
           >
@@ -195,7 +217,7 @@ export default function ProfileScreen({ navigation }) {
               <View style={[styles.actionIconBox, { backgroundColor: '#ECFDF5' }]}>
                 <Ionicons name="shield-checkmark-outline" size={20} color="#059669" />
               </View>
-              <Text style={styles.actionItemText}>Chính sách bảo mật</Text>
+              <Text style={styles.actionItemText}>{t('profile.privacyPolicy')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
           </TouchableOpacity>
@@ -203,7 +225,7 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity
             style={[styles.actionItem, { borderBottomWidth: 0 }]}
             onPress={() =>
-              Alert.alert('Hỗ trợ khách hàng', 'Mọi thắc mắc vui lòng liên hệ hotline hỗ trợ: 1900-1234 (8:00 - 21:00)')
+              Alert.alert(t('profile.support'), t('profile.supportDesc'))
             }
             activeOpacity={0.7}
           >
@@ -211,7 +233,7 @@ export default function ProfileScreen({ navigation }) {
               <View style={[styles.actionIconBox, { backgroundColor: '#FFFBEB' }]}>
                 <Ionicons name="headset-outline" size={20} color="#D97706" />
               </View>
-              <Text style={styles.actionItemText}>Hỗ trợ & Trợ giúp</Text>
+              <Text style={styles.actionItemText}>{t('profile.support')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
           </TouchableOpacity>
@@ -220,7 +242,7 @@ export default function ProfileScreen({ navigation }) {
         {/* Nút Đăng xuất */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogoutPress} activeOpacity={0.8}>
           <Ionicons name="log-out-outline" size={20} color="#DC2626" />
-          <Text style={styles.logoutBtnText}>Đăng xuất</Text>
+          <Text style={styles.logoutBtnText}>{t('profile.logoutBtn')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -233,17 +255,17 @@ export default function ProfileScreen({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Đổi mật khẩu</Text>
+            <Text style={styles.modalTitle}>{t('profile.modalChangePassTitle')}</Text>
             <Text style={styles.modalSubtitle}>
-              Cập nhật mật khẩu mới để tăng cường bảo mật cho tài khoản của bạn.
+              {t('profile.modalChangePassSubtitle')}
             </Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Mật khẩu hiện tại</Text>
+              <Text style={styles.inputLabel}>{t('profile.oldPassLabel')}</Text>
               <TextInput
                 style={styles.input}
                 secureTextEntry
-                placeholder="Nhập mật khẩu hiện tại"
+                placeholder={t('profile.oldPassPlaceholder')}
                 placeholderTextColor="#999"
                 value={oldPassword}
                 onChangeText={setOldPassword}
@@ -251,11 +273,11 @@ export default function ProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Mật khẩu mới (tối thiểu 6 ký tự)</Text>
+              <Text style={styles.inputLabel}>{t('profile.newPassLabel')}</Text>
               <TextInput
                 style={styles.input}
                 secureTextEntry
-                placeholder="Nhập mật khẩu mới"
+                placeholder={t('profile.newPassPlaceholder')}
                 placeholderTextColor="#999"
                 value={newPassword}
                 onChangeText={setNewPassword}
@@ -263,11 +285,11 @@ export default function ProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Xác nhận mật khẩu mới</Text>
+              <Text style={styles.inputLabel}>{t('profile.confirmNewPassLabel')}</Text>
               <TextInput
                 style={styles.input}
                 secureTextEntry
-                placeholder="Nhập lại mật khẩu mới"
+                placeholder={t('profile.confirmNewPassPlaceholder')}
                 placeholderTextColor="#999"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -280,7 +302,7 @@ export default function ProfileScreen({ navigation }) {
                 onPress={() => setModalVisible(false)}
                 disabled={submittingPassword}
               >
-                <Text style={styles.modalCancelText}>Hủy bỏ</Text>
+                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -291,7 +313,7 @@ export default function ProfileScreen({ navigation }) {
                 {submittingPassword ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalSubmitText}>Lưu thay đổi</Text>
+                  <Text style={styles.modalSubmitText}>{t('common.save')}</Text>
                 )}
               </TouchableOpacity>
             </View>

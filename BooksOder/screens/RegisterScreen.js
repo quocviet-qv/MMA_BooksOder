@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,9 +10,11 @@ import {
 } from 'react-native';
 
 import { API_URL } from '../src/constants/api';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/RegisterScreenStyles';
 
 export default function RegisterScreen({ navigation }) {
+  const { t, language, toggleLanguage } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -19,10 +22,10 @@ export default function RegisterScreen({ navigation }) {
 
   const handleRegister = async () => {
     if (!username.trim() || !password.trim() || !confirmPassword.trim()) {
-      return Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ các trường!');
+      return Alert.alert(t('common.warning'), t('auth.missingInfo'));
     }
     if (password !== confirmPassword) {
-      return Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp!');
+      return Alert.alert(t('common.error'), t('auth.passwordMismatch'));
     }
 
     setLoading(true);
@@ -36,15 +39,15 @@ export default function RegisterScreen({ navigation }) {
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert('Thành công 🎉', 'Đăng ký tài khoản thành công!', [
-          { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') },
+        Alert.alert(t('common.success'), t('auth.registerSuccess'), [
+          { text: t('auth.loginNow'), onPress: () => navigation.navigate('Login') },
         ]);
       } else {
-        Alert.alert('Đăng ký thất bại', data.message || 'Tài khoản đã tồn tại');
+        Alert.alert(t('common.error'), data.message || 'Tài khoản đã tồn tại');
       }
     } catch (error) {
       console.error('Lỗi đăng ký:', error);
-      Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
+      Alert.alert(t('common.error'), t('common.networkError'));
     } finally {
       setLoading(false);
     }
@@ -52,13 +55,26 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tạo tài khoản</Text>
-      <Text style={styles.subtitle}>Bắt đầu hành trình đọc sách của bạn</Text>
+      {/* Nút chuyển đổi ngôn ngữ góc trên phải */}
+      <TouchableOpacity
+        style={styles.langSwitcher}
+        onPress={toggleLanguage}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="globe-outline" size={16} color="#C5532A" />
+        <Text style={styles.langText}>
+          {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.title}>{t('auth.registerTitle')}</Text>
+      <Text style={styles.subtitle}>{t('auth.registerSubtitle')}</Text>
 
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Tên đăng nhập"
+          placeholder={t('auth.usernamePlaceholder')}
+          placeholderTextColor="#999"
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -67,7 +83,8 @@ export default function RegisterScreen({ navigation }) {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Mật khẩu"
+          placeholder={t('auth.passwordPlaceholder')}
+          placeholderTextColor="#999"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -76,7 +93,8 @@ export default function RegisterScreen({ navigation }) {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Xác nhận mật khẩu"
+          placeholder={t('auth.confirmPasswordPlaceholder')}
+          placeholderTextColor="#999"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
@@ -87,14 +105,14 @@ export default function RegisterScreen({ navigation }) {
         {loading ? (
           <ActivityIndicator color="#FFF" />
         ) : (
-          <Text style={styles.btnText}>ĐĂNG KÝ</Text>
+          <Text style={styles.btnText}>{t('auth.registerBtn')}</Text>
         )}
       </TouchableOpacity>
 
       <View style={styles.linkContainer}>
-        <Text style={styles.linkText}>Đã có tài khoản?</Text>
+        <Text style={styles.linkText}>{t('auth.haveAccount')}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.linkHighlight}>Đăng nhập ngay</Text>
+          <Text style={styles.linkHighlight}>{t('auth.loginNow')}</Text>
         </TouchableOpacity>
       </View>
     </View>

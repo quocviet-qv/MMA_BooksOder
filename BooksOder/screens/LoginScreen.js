@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,17 +11,19 @@ import {
 
 import { API_URL } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/LoginScreenStyles';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
+  const { t, language, toggleLanguage } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      return Alert.alert('Thiếu thông tin', 'Vui lòng nhập tài khoản và mật khẩu!');
+      return Alert.alert(t('common.warning'), t('auth.missingInfo'));
     }
 
     setLoading(true);
@@ -42,11 +45,11 @@ export default function LoginScreen({ navigation }) {
           username: data.username || username.trim(),
         });
       } else {
-        Alert.alert('Đăng nhập thất bại', data.message || 'Sai tài khoản hoặc mật khẩu');
+        Alert.alert(t('common.error'), data.message || t('auth.missingInfo'));
       }
     } catch (error) {
       console.error('Lỗi đăng nhập:', error);
-      Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
+      Alert.alert(t('common.error'), t('common.networkError'));
     } finally {
       setLoading(false);
     }
@@ -54,13 +57,26 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Chào mừng trở lại!</Text>
-      <Text style={styles.subtitle}>Đăng nhập để xem giỏ hàng và kho sách của bạn</Text>
+      {/* Nút chuyển đổi ngôn ngữ góc trên phải */}
+      <TouchableOpacity
+        style={styles.langSwitcher}
+        onPress={toggleLanguage}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="globe-outline" size={16} color="#C5532A" />
+        <Text style={styles.langText}>
+          {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.title}>{t('auth.loginTitle')}</Text>
+      <Text style={styles.subtitle}>{t('auth.loginSubtitle')}</Text>
 
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Tên đăng nhập"
+          placeholder={t('auth.usernamePlaceholder')}
+          placeholderTextColor="#999"
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -69,7 +85,8 @@ export default function LoginScreen({ navigation }) {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Mật khẩu"
+          placeholder={t('auth.passwordPlaceholder')}
+          placeholderTextColor="#999"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -80,20 +97,20 @@ export default function LoginScreen({ navigation }) {
         {loading ? (
           <ActivityIndicator color="#FFF" />
         ) : (
-          <Text style={styles.btnText}>ĐĂNG NHẬP</Text>
+          <Text style={styles.btnText}>{t('auth.loginBtn')}</Text>
         )}
       </TouchableOpacity>
 
       <View style={styles.linkContainer}>
-        <Text style={styles.linkText}>Chưa có tài khoản?</Text>
+        <Text style={styles.linkText}>{t('auth.noAccount')}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.linkHighlight}>Đăng ký ngay</Text>
+          <Text style={styles.linkHighlight}>{t('auth.registerNow')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Phím chọn tài khoản test nhanh */}
       <View style={styles.quickTestContainer}>
-        <Text style={styles.quickTestTitle}>⚡ Chọn tài khoản test nhanh:</Text>
+        <Text style={styles.quickTestTitle}>{t('auth.quickTestTitle')}</Text>
         <View style={styles.quickTestRow}>
           <TouchableOpacity
             style={[styles.quickTestBtn, { borderColor: '#C5532A', backgroundColor: '#FBECE7' }]}
@@ -102,7 +119,7 @@ export default function LoginScreen({ navigation }) {
               setPassword('admin123');
             }}
           >
-            <Text style={[styles.quickTestText, { color: '#C5532A' }]}>👑 Admin</Text>
+            <Text style={[styles.quickTestText, { color: '#C5532A' }]}>{t('auth.quickAdmin')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -112,7 +129,7 @@ export default function LoginScreen({ navigation }) {
               setPassword('user123');
             }}
           >
-            <Text style={[styles.quickTestText, { color: '#2563EB' }]}>🛒 User 1</Text>
+            <Text style={[styles.quickTestText, { color: '#2563EB' }]}>{t('auth.quickUser1')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -122,7 +139,7 @@ export default function LoginScreen({ navigation }) {
               setPassword('user123');
             }}
           >
-            <Text style={[styles.quickTestText, { color: '#059669' }]}>👤 User 2</Text>
+            <Text style={[styles.quickTestText, { color: '#059669' }]}>{t('auth.quickUser2')}</Text>
           </TouchableOpacity>
         </View>
       </View>

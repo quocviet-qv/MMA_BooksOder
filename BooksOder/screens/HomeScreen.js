@@ -17,28 +17,43 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/HomeScreenStyles';
-
-const categories = ['Tất cả', 'Tiểu thuyết', 'Kinh tế', 'Kỹ năng sống', 'Công nghệ', 'Văn học'];
-const sorts = ['Bán chạy', 'Mới nhất', 'Giá tăng dần', 'Giá giảm dần'];
 
 export default function HomeScreen({ navigation }) {
   const { userId, logout } = useAuth();
   const { refreshCartCount } = useCart();
+  const { t, language, toggleLanguage } = useLanguage();
+
+  const categories = [
+    t('home.allCategory'),
+    'Tiểu thuyết',
+    'Kinh tế',
+    'Kỹ năng sống',
+    'Công nghệ',
+    'Văn học',
+  ];
+
+  const sorts = [
+    { id: 'bestseller', label: language === 'vi' ? 'Bán chạy' : 'Best Seller' },
+    { id: 'newest', label: t('home.sortNewest') },
+    { id: 'priceAsc', label: t('home.sortPriceAsc') },
+    { id: 'priceDesc', label: t('home.sortPriceDesc') },
+  ];
 
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('Tất cả');
-  const [activeSort, setActiveSort] = useState('Bán chạy');
+  const [activeCategory, setActiveCategory] = useState(categories[0]);
+  const [activeSort, setActiveSort] = useState('bestseller');
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState([]);
 
   const handleLogout = () => {
-    Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn đăng xuất?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert(t('common.confirm'), t('common.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Đăng xuất',
+        text: t('common.logout'),
         style: 'destructive',
         onPress: () => logout(),
       },
@@ -109,7 +124,8 @@ export default function HomeScreen({ navigation }) {
 
   // Lọc và sắp xếp sách hiển thị
   let displayBooks = books.filter((book) => {
-    const matchCategory = activeCategory === 'Tất cả' || book.category === activeCategory;
+    const isAll = activeCategory === categories[0] || activeCategory === 'Tất cả' || activeCategory === 'All';
+    const matchCategory = isAll || book.category === activeCategory;
     const query = searchQuery.toLowerCase().trim();
     const matchSearch =
       (book.bookName && book.bookName.toLowerCase().includes(query)) ||
@@ -117,10 +133,12 @@ export default function HomeScreen({ navigation }) {
     return matchCategory && matchSearch;
   });
 
-  if (activeSort === 'Giá tăng dần') {
+  if (activeSort === 'priceAsc') {
     displayBooks.sort((a, b) => a.price - b.price);
-  } else if (activeSort === 'Giá giảm dần') {
+  } else if (activeSort === 'priceDesc') {
     displayBooks.sort((a, b) => b.price - a.price);
+  } else if (activeSort === 'newest') {
+    displayBooks.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }
 
   const renderBookItem = ({ item }) => {
@@ -191,20 +209,31 @@ export default function HomeScreen({ navigation }) {
           <View>
             <View style={styles.header}>
               <View>
-                <Text style={styles.greeting}>Xin chào 👋</Text>
-                <Text style={styles.mainTitle}>Hôm nay bạn muốn{'\n'}đọc gì?</Text>
+                <Text style={styles.greeting}>{t('home.greeting')}</Text>
+                <Text style={styles.mainTitle}>{t('home.headerTitle')}</Text>
               </View>
 
-              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={26} color="#C5532A" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  style={[styles.logoutBtn, { marginRight: 8, paddingHorizontal: 10 }]}
+                  onPress={toggleLanguage}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#C5532A' }}>
+                    {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+                  <Ionicons name="log-out-outline" size={24} color="#C5532A" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.searchContainer}>
               <Ionicons name="search-outline" size={20} color="#888" style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Tìm theo tên sách hoặc tác giả"
+                placeholder={t('home.searchPlaceholder')}
                 placeholderTextColor="#999"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -240,21 +269,23 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.divider} />
 
             <View style={styles.sortSection}>
-              <Text style={styles.bookCount}>{displayBooks.length} cuốn sách</Text>
+              <Text style={styles.bookCount}>
+                {displayBooks.length} {t('home.booksCount')}
+              </Text>
               <View style={styles.sortButtons}>
                 {sorts.map((sort) => (
                   <TouchableOpacity
-                    key={sort}
-                    style={[styles.sortBtn, activeSort === sort && styles.activeSortBtn]}
-                    onPress={() => setActiveSort(sort)}
+                    key={sort.id}
+                    style={[styles.sortBtn, activeSort === sort.id && styles.activeSortBtn]}
+                    onPress={() => setActiveSort(sort.id)}
                   >
                     <Text
                       style={[
                         styles.sortText,
-                        activeSort === sort && styles.activeSortText,
+                        activeSort === sort.id && styles.activeSortText,
                       ]}
                     >
-                      {sort}
+                      {sort.label}
                     </Text>
                   </TouchableOpacity>
                 ))}

@@ -15,22 +15,25 @@ import {
 
 import { API_URL } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/OrdersScreenStyles';
-
-const FILTER_TABS = [
-  'Tất cả',
-  'Chờ xác nhận',
-  'Đang vận chuyển',
-  'Hoàn thành',
-  'Đã hủy'
-];
 
 export default function OrdersScreen({ navigation }) {
   const { userId } = useAuth();
+  const { t } = useLanguage();
+
+  const filterTabs = [
+    { id: 'all', label: t('home.allCategory') },
+    { id: 'Chờ xác nhận', label: t('orders.statusPending') },
+    { id: 'Đang vận chuyển', label: t('orders.statusShipping') },
+    { id: 'Hoàn thành', label: t('orders.statusCompleted') },
+    { id: 'Đã hủy', label: t('orders.statusCancelled') },
+  ];
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('Tất cả');
+  const [activeTab, setActiveTab] = useState('all');
   const [cancellingId, setCancellingId] = useState(null);
 
   useFocusEffect(
@@ -51,7 +54,7 @@ export default function OrdersScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Lỗi tải danh sách đơn hàng:', error);
-      Alert.alert('Lỗi', 'Không thể kết nối đến máy chủ để tải đơn hàng.');
+      Alert.alert(t('common.error'), t('common.networkError'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,31 +82,31 @@ export default function OrdersScreen({ navigation }) {
         return {
           badgeStyle: [styles.statusBadge, styles.badgePending],
           textStyle: [styles.statusText, styles.statusPendingText],
-          label: 'Chờ xác nhận'
+          label: t('orders.statusPending'),
         };
       case 'Đang vận chuyển':
         return {
           badgeStyle: [styles.statusBadge, styles.badgeShipping],
           textStyle: [styles.statusText, styles.statusShippingText],
-          label: 'Đang vận chuyển'
+          label: t('orders.statusShipping'),
         };
       case 'Hoàn thành':
         return {
           badgeStyle: [styles.statusBadge, styles.badgeCompleted],
           textStyle: [styles.statusText, styles.statusCompletedText],
-          label: 'Hoàn thành'
+          label: t('orders.statusCompleted'),
         };
       case 'Đã hủy':
         return {
           badgeStyle: [styles.statusBadge, styles.badgeCancelled],
           textStyle: [styles.statusText, styles.statusCancelledText],
-          label: 'Đã hủy'
+          label: t('orders.statusCancelled'),
         };
       default:
         return {
           badgeStyle: [styles.statusBadge, styles.badgePending],
           textStyle: [styles.statusText, styles.statusPendingText],
-          label: status
+          label: status,
         };
     }
   };
@@ -146,7 +149,7 @@ export default function OrdersScreen({ navigation }) {
 
   // Lọc đơn hàng theo Tab được chọn
   const filteredOrders = orders.filter(order => {
-    if (activeTab === 'Tất cả') return true;
+    if (activeTab === 'all') return true;
     return normalizeStatus(order.status) === activeTab;
   });
 
@@ -219,9 +222,9 @@ export default function OrdersScreen({ navigation }) {
         {/* Footer: Tổng tiền & Các nút hành động */}
         <View style={styles.orderFooter}>
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tổng thanh toán:</Text>
+            <Text style={styles.totalLabel}>{t('orders.total')}</Text>
             <Text style={styles.totalValue}>
-              {(item.totalAmount || 0).toLocaleString('vi-VN')} đ
+              {(item.totalAmount || 0).toLocaleString('vi-VN')} {t('common.currency')}
             </Text>
           </View>
 
@@ -235,7 +238,7 @@ export default function OrdersScreen({ navigation }) {
                 {cancellingId === item._id ? (
                   <ActivityIndicator size="small" color="#D32F2F" />
                 ) : (
-                  <Text style={styles.cancelBtnText}>Hủy đơn</Text>
+                  <Text style={styles.cancelBtnText}>{t('orders.cancelOrder')}</Text>
                 )}
               </TouchableOpacity>
             )}
@@ -244,7 +247,7 @@ export default function OrdersScreen({ navigation }) {
               style={styles.detailBtn}
               onPress={() => navigation.navigate('OrderDetail', { orderId: item._id, order: item })}
             >
-              <Text style={styles.detailBtnText}>Chi tiết</Text>
+              <Text style={styles.detailBtnText}>{t('orders.viewDetail')}</Text>
               <Ionicons name="chevron-forward" size={16} color="#FFF" />
             </TouchableOpacity>
           </View>
@@ -257,8 +260,7 @@ export default function OrdersScreen({ navigation }) {
     <View style={styles.container}>
       {/* Header màn hình */}
       <View style={styles.header}>
-        <Text style={styles.mainTitle}>Đơn hàng của tôi</Text>
-        <Text style={styles.subtitle}>Theo dõi và quản lý lịch sử mua hàng</Text>
+        <Text style={styles.mainTitle}>{t('orders.title')}</Text>
       </View>
 
       {/* Tabs lọc trạng thái */}
@@ -268,16 +270,16 @@ export default function OrdersScreen({ navigation }) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterContainer}
         >
-          {FILTER_TABS.map((tab) => {
-            const isActive = activeTab === tab;
+          {filterTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
             return (
               <TouchableOpacity
-                key={tab}
+                key={tab.id}
                 style={[styles.filterTab, isActive && styles.filterTabActive]}
-                onPress={() => setActiveTab(tab)}
+                onPress={() => setActiveTab(tab.id)}
               >
                 <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
-                  {tab}
+                  {tab.label}
                 </Text>
               </TouchableOpacity>
             );
@@ -289,24 +291,19 @@ export default function OrdersScreen({ navigation }) {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#C5532A" />
-          <Text style={styles.loadingText}>Đang tải lịch sử đơn hàng...</Text>
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.iconCircle}>
             <Ionicons name="receipt-outline" size={54} color="#A89F91" />
           </View>
-          <Text style={styles.emptyTitle}>Chưa có đơn hàng nào</Text>
-          <Text style={styles.emptyDesc}>
-            {activeTab === 'Tất cả'
-              ? 'Bạn chưa đặt mua cuốn sách nào. Hãy khám phá và mua sắm ngay hôm nay!'
-              : `Không tìm thấy đơn hàng nào thuộc trạng thái "${activeTab}".`}
-          </Text>
+          <Text style={styles.emptyTitle}>{t('orders.empty')}</Text>
           <TouchableOpacity
             style={styles.shopBtn}
             onPress={() => navigation.navigate('Home')}
           >
-            <Text style={styles.shopBtnText}>Khám phá sách ngay</Text>
+            <Text style={styles.shopBtnText}>{t('cart.exploreBtn')}</Text>
           </TouchableOpacity>
         </View>
       ) : (

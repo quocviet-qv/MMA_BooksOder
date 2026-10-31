@@ -15,11 +15,13 @@ import {
 import { API_URL } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/CartScreenStyles';
 
 export default function CartScreen({ navigation }) {
   const { userId } = useAuth();
   const { refreshCartCount } = useCart();
+  const { t } = useLanguage();
 
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function CartScreen({ navigation }) {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
+      Alert.alert(t('common.error'), t('common.networkError'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -183,15 +185,15 @@ export default function CartScreen({ navigation }) {
           <View style={styles.iconCircle}>
             <Ionicons name="bag-handle-outline" size={60} color="#C5532A" />
           </View>
-          <Text style={styles.emptyTitle}>Giỏ hàng đang trống!</Text>
+          <Text style={styles.emptyTitle}>{t('cart.emptyTitle')}</Text>
           <Text style={styles.emptyDesc}>
-            Hãy dạo quanh một vòng và chọn cho mình những cuốn sách thật ưng ý nhé.
+            {t('cart.emptySubtitle')}
           </Text>
           <TouchableOpacity
             style={styles.exploreBtn}
             onPress={() => navigation.navigate('Home')}
           >
-            <Text style={styles.exploreBtnText}>Khám phá sách ngay</Text>
+            <Text style={styles.exploreBtnText}>{t('cart.exploreBtn')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -201,7 +203,7 @@ export default function CartScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.mainTitle}>Giỏ hàng</Text>
+        <Text style={styles.mainTitle}>{t('cart.title')}</Text>
       </View>
 
       <FlatList
@@ -222,15 +224,15 @@ export default function CartScreen({ navigation }) {
 
       <View style={styles.footer}>
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Tổng cộng:</Text>
-          <Text style={styles.totalValue}>{totalAmount.toLocaleString('vi-VN')} đ</Text>
+          <Text style={styles.totalLabel}>{t('cart.totalPrice')}</Text>
+          <Text style={styles.totalValue}>{totalAmount.toLocaleString('vi-VN')} {t('common.currency')}</Text>
         </View>
 
         <TouchableOpacity
           style={styles.checkoutBtn}
           onPress={() => navigation.navigate('Checkout', { totalAmount })}
         >
-          <Text style={styles.checkoutBtnText}>THANH TOÁN NGAY</Text>
+          <Text style={styles.checkoutBtnText}>{t('cart.checkoutBtn')}</Text>
         </TouchableOpacity>
       </View>
     </View>

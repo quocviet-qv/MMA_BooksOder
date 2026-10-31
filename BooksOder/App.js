@@ -7,6 +7,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { CartProvider, useCart } from './src/context/CartContext';
+import { LanguageProvider, useLanguage } from './src/context/LanguageContext';
 
 // Import các màn hình User & Admin
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
@@ -32,6 +33,7 @@ const Stack = createNativeStackNavigator();
 // 1. Cụm Tab cho User bình thường (kèm Badge giỏ hàng nhảy số realtime và Tab Hồ sơ)
 function MainTabs() {
   const { cartCount } = useCart();
+  const { t } = useLanguage();
 
   return (
     <Tab.Navigator
@@ -56,25 +58,27 @@ function MainTabs() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Trang chủ' }} />
-      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'Yêu thích' }} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: t('tabs.home') }} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: t('tabs.favorites') }} />
       <Tab.Screen
         name="Cart"
         component={CartScreen}
         options={{
-          title: 'Giỏ hàng',
+          title: t('tabs.cart'),
           tabBarBadge: cartCount > 0 ? cartCount : undefined,
           tabBarBadgeStyle: { backgroundColor: '#E25842', color: '#FFF', fontSize: 11 },
         }}
       />
-      <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: 'Đơn hàng' }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Tài khoản' }} />
+      <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: t('tabs.orders') }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: t('tabs.profile') }} />
     </Tab.Navigator>
   );
 }
 
 // 2. Cụm Tab cho Quản trị viên (Thống kê doanh thu, Kho sách & Quản lý đơn hàng)
 function AdminTabs() {
+  const { t } = useLanguage();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -97,13 +101,13 @@ function AdminTabs() {
       <Tab.Screen
         name="AdminDashboard"
         component={AdminDashboardScreen}
-        options={{ title: 'Thống kê' }}
+        options={{ title: t('tabs.adminDashboard') }}
       />
-      <Tab.Screen name="AdminBooks" component={AdminScreen} options={{ title: 'Kho sách' }} />
+      <Tab.Screen name="AdminBooks" component={AdminScreen} options={{ title: t('tabs.adminBooks') }} />
       <Tab.Screen
         name="AdminOrdersTab"
         component={AdminOrdersScreen}
-        options={{ title: 'Đơn hàng' }}
+        options={{ title: t('tabs.adminOrders') }}
       />
     </Tab.Navigator>
   );
@@ -112,6 +116,7 @@ function AdminTabs() {
 // 3. Khung điều hướng chính (Root Navigator kết nối với AuthContext)
 function RootNavigator() {
   const { isLoading, isLoggedIn, userRole } = useAuth();
+  const { t } = useLanguage();
 
   // Màn hình chờ (Loading) trong lúc kiểm tra bộ nhớ AsyncStorage
   if (isLoading) {
@@ -145,25 +150,29 @@ function RootNavigator() {
             <Stack.Screen
               name="AdminForm"
               component={AdminFormScreen}
-              options={{ headerShown: true, title: 'Thông tin sách' }}
+              options={{ headerShown: true, title: t('headers.bookForm') }}
             />
           </>
         ) : (
           // LUỒNG 3: Đã đăng nhập với tài khoản User bình thường
           <>
             <Stack.Screen name="Main" component={MainTabs} />
-            <Stack.Screen name="Chi tiết" component={DetailScreen} options={{ headerShown: true }} />
+            <Stack.Screen
+              name="Chi tiết"
+              component={DetailScreen}
+              options={{ headerShown: true, title: t('headers.bookDetail') }}
+            />
             <Stack.Screen
               name="Checkout"
               component={CheckoutScreen}
-              options={{ headerShown: true, title: 'Thanh toán' }}
+              options={{ headerShown: true, title: t('headers.checkout') }}
             />
             <Stack.Screen
               name="OrderDetail"
               component={OrderDetailScreen}
               options={{
                 headerShown: true,
-                title: 'Chi tiết đơn hàng',
+                title: t('headers.orderDetail'),
                 headerTintColor: '#C5532A',
                 headerTitleStyle: { color: '#1A1A1A', fontWeight: 'bold' },
                 headerStyle: { backgroundColor: '#FAF7F2' },
@@ -176,13 +185,15 @@ function RootNavigator() {
   );
 }
 
-// 4. Component gốc: Bọc AuthProvider và CartProvider cho toàn bộ ứng dụng
+// 4. Component gốc: Bọc LanguageProvider, AuthProvider và CartProvider cho toàn bộ ứng dụng
 export default function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <RootNavigator />
-      </CartProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <CartProvider>
+          <RootNavigator />
+        </CartProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

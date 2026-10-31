@@ -15,20 +15,28 @@ import {
 
 import { API_URL, getCurrentUserId } from '../src/constants/api';
 import { useCart } from '../src/context/CartContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/DetailScreenStyles';
-
-const STAR_MOODS = {
-  1: 'Rất tệ 😡',
-  2: 'Tệ 🙁',
-  3: 'Bình thường 😐',
-  4: 'Hài lòng 🙂',
-  5: 'Tuyệt vời / Rất hài lòng 🌟'
-};
 
 export default function DetailScreen({ route, navigation }) {
   const { book } = route.params;
   const bookId = (book.id || book._id).toString();
   const { refreshCartCount } = useCart();
+  const { t, language } = useLanguage();
+
+  const STAR_MOODS = language === 'en' ? {
+    1: 'Very Bad 😡',
+    2: 'Bad 🙁',
+    3: 'Average 😐',
+    4: 'Good 🙂',
+    5: 'Excellent 🌟',
+  } : {
+    1: 'Rất tệ 😡',
+    2: 'Tệ 🙁',
+    3: 'Bình thường 😐',
+    4: 'Hài lòng 🙂',
+    5: 'Tuyệt vời / Rất hài lòng 🌟',
+  };
 
   const [isAdding, setIsAdding] = useState(false);
   const [isFav, setIsFav] = useState(false);
@@ -230,7 +238,7 @@ export default function DetailScreen({ route, navigation }) {
 
           {/* Tiêu đề & Tác giả */}
           <Text style={styles.title}>{book.bookName}</Text>
-          <Text style={styles.author}>Tác giả: {book.author}</Text>
+          <Text style={styles.author}>{t('detail.author')}: {book.author}</Text>
 
           {/* Dòng đánh giá tóm tắt trên đầu */}
           <View style={styles.ratingSummaryRow}>
@@ -241,12 +249,12 @@ export default function DetailScreen({ route, navigation }) {
               {averageRating > 0 ? averageRating.toFixed(1) : '5.0'}
             </Text>
             <Text style={styles.ratingCountText}>
-              ({totalReviews} đánh giá)
+              ({totalReviews})
             </Text>
           </View>
 
           {/* Giá sách */}
-          <Text style={styles.price}>{book.price?.toLocaleString('vi-VN')} đ</Text>
+          <Text style={styles.price}>{book.price?.toLocaleString('vi-VN')} {t('common.currency')}</Text>
 
           {/* Trạng thái tồn kho */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
@@ -276,8 +284,8 @@ export default function DetailScreen({ route, navigation }) {
                 }}
               >
                 {(book.stock !== undefined && book.stock <= 0)
-                  ? 'Tạm hết hàng'
-                  : `Còn hàng (Kho: ${book.stock !== undefined ? book.stock : 50} cuốn)`}
+                  ? t('detail.stockOut')
+                  : `${t('detail.stockIn')} (${t('detail.stockCount', { count: book.stock !== undefined ? book.stock : 50 })})`}
               </Text>
             </View>
           </View>
@@ -400,7 +408,7 @@ export default function DetailScreen({ route, navigation }) {
           ) : (
             <>
               <Ionicons name="cart" size={20} color="#FFF" style={styles.btnIcon} />
-              <Text style={styles.addToCartText}>Thêm vào giỏ</Text>
+              <Text style={styles.addToCartText}>{t('detail.addToCart')}</Text>
             </>
           )}
         </TouchableOpacity>
