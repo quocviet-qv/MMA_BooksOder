@@ -63,7 +63,7 @@ export default function LoginScreen({ navigation }) {
         onPress={toggleLanguage}
         activeOpacity={0.7}
       >
-        <Ionicons name="globe-outline" size={16} color="#C5532A" />
+        <Ionicons name="globe-outline" size={16} color="#B91C1C" />
         <Text style={styles.langText}>
           {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
         </Text>
@@ -113,13 +113,13 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.quickTestTitle}>{t('auth.quickTestTitle')}</Text>
         <View style={styles.quickTestRow}>
           <TouchableOpacity
-            style={[styles.quickTestBtn, { borderColor: '#C5532A', backgroundColor: '#FBECE7' }]}
+            style={[styles.quickTestBtn, { borderColor: '#B91C1C', backgroundColor: '#FEE2E2' }]}
             onPress={() => {
               setUsername('admin');
               setPassword('admin123');
             }}
           >
-            <Text style={[styles.quickTestText, { color: '#C5532A' }]}>{t('auth.quickAdmin')}</Text>
+            <Text style={[styles.quickTestText, { color: '#B91C1C' }]}>{t('auth.quickAdmin')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

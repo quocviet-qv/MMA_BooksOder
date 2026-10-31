@@ -232,18 +232,21 @@ export default function DetailScreen({ route, navigation }) {
               <Text style={styles.categoryText}>{book.category}</Text>
             </View>
             <TouchableOpacity style={styles.favIconBtn} onPress={handleToggleFavorite} disabled={loadingFav}>
-              <Ionicons name={isFav ? "heart" : "heart-outline"} size={26} color={isFav ? "#E25842" : "#999"} />
+              <Ionicons name={isFav ? "heart" : "heart-outline"} size={26} color={isFav ? "#B91C1C" : "#999"} />
             </TouchableOpacity>
           </View>
 
-          {/* Tiêu đề & Tác giả */}
+          {/* Tiêu đề sách */}
           <Text style={styles.title}>{book.bookName}</Text>
-          <Text style={styles.author}>{t('detail.author')}: {book.author}</Text>
 
-          {/* Dòng đánh giá tóm tắt trên đầu */}
-          <View style={styles.ratingSummaryRow}>
+          {/* Hàng Tác giả & Số sao cùng một dòng */}
+          <View style={styles.authorRatingRow}>
+            <Text style={styles.author} numberOfLines={1}>
+              {t('detail.author')}: {book.author}
+            </Text>
+            <View style={styles.authorRatingDivider} />
             <View style={styles.ratingStarsGroup}>
-              {renderStars(averageRating > 0 ? averageRating : 5, 17)}
+              {renderStars(averageRating > 0 ? averageRating : 5, 15)}
             </View>
             <Text style={styles.ratingScoreBadge}>
               {averageRating > 0 ? averageRating.toFixed(1) : '5.0'}
@@ -309,7 +312,7 @@ export default function DetailScreen({ route, navigation }) {
               style={styles.writeReviewBtn}
               onPress={() => setModalVisible(true)}
             >
-              <Ionicons name="create-outline" size={16} color="#C5532A" />
+              <Ionicons name="create-outline" size={16} color="#B91C1C" />
               <Text style={styles.writeReviewBtnText}>Viết đánh giá</Text>
             </TouchableOpacity>
           </View>
@@ -345,7 +348,7 @@ export default function DetailScreen({ route, navigation }) {
 
           {/* Danh sách các bài đánh giá của độc giả */}
           {loadingReviews ? (
-            <ActivityIndicator size="small" color="#C5532A" style={{ marginVertical: 20 }} />
+            <ActivityIndicator size="small" color="#B91C1C" style={{ marginVertical: 20 }} />
           ) : reviews.length === 0 ? (
             <View style={styles.emptyReviewsBox}>
               <Ionicons name="chatbubble-ellipses-outline" size={36} color="#A89F91" />
@@ -395,7 +398,7 @@ export default function DetailScreen({ route, navigation }) {
       {/* Thanh nút đặt hàng cố định dưới đáy */}
       <View style={[styles.bottomBar, { paddingBottom: Platform.OS === 'android' ? 45 : 25 }]}>
         <TouchableOpacity style={styles.favOutlineBtn} onPress={handleToggleFavorite} disabled={loadingFav}>
-          <Ionicons name={isFav ? "heart" : "heart-outline"} size={24} color="#E25842" />
+          <Ionicons name={isFav ? "heart" : "heart-outline"} size={24} color="#B91C1C" />
         </TouchableOpacity>
 
         <TouchableOpacity

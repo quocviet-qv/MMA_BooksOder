@@ -125,7 +125,7 @@ export default function ProfileScreen({ navigation }) {
         {/* Thẻ thông tin cá nhân */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <Ionicons name="person" size={40} color="#C5532A" />
+            <Ionicons name="person" size={40} color="#B91C1C" />
           </View>
           <Text style={styles.userName}>{userName || 'User'}</Text>
           <View style={styles.roleBadge}>
@@ -143,7 +143,7 @@ export default function ProfileScreen({ navigation }) {
             onPress={() => navigation.navigate('Orders')}
             activeOpacity={0.7}
           >
-            <Ionicons name="receipt-outline" size={24} color="#C5532A" />
+            <Ionicons name="receipt-outline" size={24} color="#B91C1C" />
             <Text style={styles.statNumber}>{orderCount}</Text>
             <Text style={styles.statLabel}>{t('profile.ordersCount')}</Text>
           </TouchableOpacity>
@@ -153,7 +153,7 @@ export default function ProfileScreen({ navigation }) {
             onPress={() => navigation.navigate('Cart')}
             activeOpacity={0.7}
           >
-            <Ionicons name="bag-handle-outline" size={24} color="#C5532A" />
+            <Ionicons name="bag-handle-outline" size={24} color="#B91C1C" />
             <Text style={styles.statNumber}>{cartCount}</Text>
             <Text style={styles.statLabel}>{t('profile.cartCount')}</Text>
           </TouchableOpacity>
@@ -163,7 +163,7 @@ export default function ProfileScreen({ navigation }) {
             onPress={() => navigation.navigate('Favorites')}
             activeOpacity={0.7}
           >
-            <Ionicons name="heart-outline" size={24} color="#C5532A" />
+            <Ionicons name="heart-outline" size={24} color="#B91C1C" />
             <Text style={styles.statNumber}>-</Text>
             <Text style={styles.statLabel}>{t('profile.savedCount')}</Text>
           </TouchableOpacity>
@@ -185,7 +185,7 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.actionItemText}>{t('profile.switchLanguage')}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#C5532A', marginRight: 6 }}>
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#B91C1C', marginRight: 6 }}>
                 {language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇬🇧 English'}
               </Text>
               <Ionicons name="swap-horizontal" size={16} color="#9CA3AF" />

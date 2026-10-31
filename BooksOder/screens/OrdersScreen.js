@@ -290,13 +290,13 @@ export default function OrdersScreen({ navigation }) {
       {/* Nội dung danh sách đơn hàng */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#C5532A" />
+          <ActivityIndicator size="large" color="#B91C1C" />
           <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.iconCircle}>
-            <Ionicons name="receipt-outline" size={54} color="#A89F91" />
+            <Ionicons name="receipt-outline" size={54} color="#B91C1C" />
           </View>
           <Text style={styles.emptyTitle}>{t('orders.empty')}</Text>
           <TouchableOpacity
@@ -317,8 +317,8 @@ export default function OrdersScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#C5532A']}
-              tintColor="#C5532A"
+              colors={['#B91C1C']}
+              tintColor="#B91C1C"
             />
           }
         />

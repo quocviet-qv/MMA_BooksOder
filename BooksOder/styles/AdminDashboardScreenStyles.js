@@ -6,7 +6,7 @@ const STAT_CARD_WIDTH = (width - 48) / 2;
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#F8F9FA',
   },
   header: {
     flexDirection: 'row',
@@ -18,22 +18,23 @@ export const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#777',
+    color: '#64748B',
     fontWeight: '500',
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    fontFamily: 'serif',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   logoutBtn: {
     padding: 8,
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
   },
   scrollContent: {
@@ -42,11 +43,11 @@ export const styles = StyleSheet.create({
   },
   // Revenue Highlight Card
   revenueCard: {
-    backgroundColor: '#C5532A',
-    borderRadius: 16,
+    backgroundColor: '#B91C1C',
+    borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#C5532A',
+    shadowColor: '#B91C1C',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -55,18 +56,18 @@ export const styles = StyleSheet.create({
   revenueLabel: {
     color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   revenueValue: {
     color: '#FFFFFF',
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '800',
     marginVertical: 8,
   },
   revenueSubtext: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#FED7AA',
     fontSize: 12,
   },
   // KPI Grid
@@ -79,10 +80,12 @@ export const styles = StyleSheet.create({
   kpiCard: {
     width: STAT_CARD_WIDTH,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
@@ -97,12 +100,12 @@ export const styles = StyleSheet.create({
   },
   kpiValue: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   kpiTitle: {
     fontSize: 12,
-    color: '#666',
+    color: '#64748B',
     marginTop: 4,
   },
   // Section Headers
@@ -114,8 +117,8 @@ export const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 17,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
+    fontWeight: '800',
+    color: '#0F172A',
     marginLeft: 8,
   },
   // Status Distribution Card
@@ -124,8 +127,10 @@ export const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
   },
@@ -135,7 +140,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomColor: '#F1F5F9',
   },
   statusLeft: {
     flexDirection: 'row',
@@ -149,7 +154,7 @@ export const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 14,
-    color: '#333',
+    color: '#334155',
     fontWeight: '500',
   },
   statusCountBadge: {
@@ -159,7 +164,7 @@ export const styles = StyleSheet.create({
   },
   statusCountText: {
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   // Top Selling Items
   rankingItem: {
@@ -167,7 +172,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomColor: '#F1F5F9',
   },
   rankingBadge: {
     width: 26,
@@ -179,29 +184,29 @@ export const styles = StyleSheet.create({
   },
   rankingText: {
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   rankingInfo: {
     flex: 1,
   },
   rankingTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   rankingSold: {
     fontSize: 12,
-    color: '#888',
+    color: '#94A3B8',
     marginTop: 2,
   },
   rankingRevenue: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#C5532A',
+    fontWeight: '800',
+    color: '#B91C1C',
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
+    color: '#94A3B8',
     paddingVertical: 20,
     fontStyle: 'italic',
   },

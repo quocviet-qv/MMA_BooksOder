@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Image,
   RefreshControl,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,34 +22,71 @@ import { useCart } from '../src/context/CartContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/HomeScreenStyles';
 
+const { width } = Dimensions.get('window');
+
 export default function HomeScreen({ navigation }) {
-  const { userId, logout } = useAuth();
-  const { refreshCartCount } = useCart();
+  const { userId, userName, logout } = useAuth();
+  const { cartCount, refreshCartCount } = useCart();
   const { t, language, toggleLanguage } = useLanguage();
 
-  const categories = [
-    t('home.allCategory'),
-    'Tiểu thuyết',
-    'Kinh tế',
-    'Kỹ năng sống',
-    'Công nghệ',
-    'Văn học',
-  ];
+  const categories = useMemo(
+    () => [
+      { id: 'all', name: t('home.allCategory'), icon: 'grid-outline' },
+      { id: 'novel', name: 'Tiểu thuyết', icon: 'book-outline' },
+      { id: 'economy', name: 'Kinh tế', icon: 'trending-up-outline' },
+      { id: 'skills', name: 'Kỹ năng sống', icon: 'bulb-outline' },
+      { id: 'tech', name: 'Công nghệ', icon: 'hardware-chip-outline' },
+      { id: 'literature', name: 'Văn học', icon: 'pencil-outline' },
+    ],
+    [t]
+  );
 
-  const sorts = [
-    { id: 'bestseller', label: language === 'vi' ? 'Bán chạy' : 'Best Seller' },
-    { id: 'newest', label: t('home.sortNewest') },
-    { id: 'priceAsc', label: t('home.sortPriceAsc') },
-    { id: 'priceDesc', label: t('home.sortPriceDesc') },
-  ];
+  const sorts = useMemo(
+    () => [
+      { id: 'bestseller', label: language === 'vi' ? 'Bán chạy' : 'Best Seller' },
+      { id: 'newest', label: t('home.sortNewest') },
+      { id: 'priceAsc', label: t('home.sortPriceAsc') },
+      { id: 'priceDesc', label: t('home.sortPriceDesc') },
+    ],
+    [language, t]
+  );
 
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeCategory, setActiveCategory] = useState(categories[0]);
+  const [activeCategory, setActiveCategory] = useState('all');
   const [activeSort, setActiveSort] = useState('bestseller');
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState([]);
+  const [addingCartId, setAddingCartId] = useState(null);
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+  const bannerScrollRef = useRef(null);
+
+  // Lấy ra sách bán chạy nhất để hiển thị nổi bật trên banner slide
+  const topBook = useMemo(() => {
+    if (!books || books.length === 0) return null;
+    return [...books].sort((a, b) => (b.averageRating || 5) - (a.averageRating || 5))[0];
+  }, [books]);
+
+  // Tự động lướt banner nhẹ nhàng mỗi 4.5 giây
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveBannerIndex((prevIndex) => {
+        const nextIndex = (prevIndex + 1) % 3;
+        bannerScrollRef.current?.scrollTo({ x: nextIndex * width, animated: true });
+        return nextIndex;
+      });
+    }, 4500);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const onBannerScroll = (event) => {
+    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+    if (slideIndex >= 0 && slideIndex < 3 && slideIndex !== activeBannerIndex) {
+      setActiveBannerIndex(slideIndex);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(t('common.confirm'), t('common.logoutConfirm'), [
@@ -122,60 +161,153 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  const handleQuickAddToCart = async (book) => {
+    const currentId = userId || 'user123';
+    const bookId = (book.id || book._id).toString();
+
+    setAddingCartId(bookId);
+    try {
+      const response = await fetch(`${API_URL}/cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentId, bookId, quantity: 1 }),
+      });
+
+      if (response.ok) {
+        await refreshCartCount(currentId);
+        Alert.alert(
+          language === 'vi' ? 'Thành công 🎉' : 'Added to Cart 🎉',
+          language === 'vi'
+            ? `Đã thêm "${book.bookName}" vào giỏ hàng!`
+            : `Added "${book.bookName}" to your cart!`,
+          [
+            { text: language === 'vi' ? 'Tiếp tục xem' : 'Keep shopping', style: 'cancel' },
+            {
+              text: language === 'vi' ? 'Đến giỏ hàng' : 'View Cart',
+              onPress: () => navigation.navigate('Main', { screen: 'Cart' }),
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          language === 'vi' ? 'Thông báo' : 'Notice',
+          language === 'vi' ? 'Không thể thêm sách vào lúc này.' : 'Could not add to cart right now.'
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        language === 'vi' ? 'Lỗi kết nối' : 'Connection Error',
+        language === 'vi' ? 'Vui lòng kiểm tra lại mạng.' : 'Please check your connection.'
+      );
+    } finally {
+      setAddingCartId(null);
+    }
+  };
+
   // Lọc và sắp xếp sách hiển thị
+  const selectedCategoryObj = categories.find((c) => c.id === activeCategory);
+  const selectedCategoryName = selectedCategoryObj ? selectedCategoryObj.name : t('home.allCategory');
+
   let displayBooks = books.filter((book) => {
-    const isAll = activeCategory === categories[0] || activeCategory === 'Tất cả' || activeCategory === 'All';
-    const matchCategory = isAll || book.category === activeCategory;
+    const isAll = activeCategory === 'all';
+    const matchCategory = isAll || book.category === selectedCategoryName;
     const query = searchQuery.toLowerCase().trim();
     const matchSearch =
+      !query ||
       (book.bookName && book.bookName.toLowerCase().includes(query)) ||
       (book.author && book.author.toLowerCase().includes(query));
     return matchCategory && matchSearch;
   });
 
   if (activeSort === 'priceAsc') {
-    displayBooks.sort((a, b) => a.price - b.price);
+    displayBooks.sort((a, b) => (a.price || 0) - (b.price || 0));
   } else if (activeSort === 'priceDesc') {
-    displayBooks.sort((a, b) => b.price - a.price);
+    displayBooks.sort((a, b) => (b.price || 0) - (a.price || 0));
   } else if (activeSort === 'newest') {
     displayBooks.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  } else if (activeSort === 'bestseller') {
+    displayBooks.sort((a, b) => (b.averageRating || 5) - (a.averageRating || 5));
   }
 
   const renderBookItem = ({ item }) => {
     const itemId = (item.id || item._id).toString();
     const isFav = favorites.includes(itemId);
+    const originalPrice = Math.round((item.price || 0) * 1.15);
+    const isAdding = addingCartId === itemId;
 
     return (
       <TouchableOpacity
         style={styles.card}
+        activeOpacity={0.9}
         onPress={() => navigation.navigate('Chi tiết', { book: item })}
       >
-        <Image source={{ uri: item.coverImage }} style={styles.coverImage} />
+        <View style={styles.imageWrapper}>
+          <Image
+            source={{ uri: item.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400' }}
+            style={styles.coverImage}
+          />
 
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>-15%</Text>
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>-15%</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.favoriteBtn}
+            activeOpacity={0.7}
+            onPress={() => toggleFavorite(item)}
+          >
+            <Ionicons
+              name={isFav ? 'heart' : 'heart-outline'}
+              size={18}
+              color={isFav ? '#EF4444' : '#64748B'}
+            />
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.favoriteBtn} onPress={() => toggleFavorite(item)}>
-          <Ionicons
-            name={isFav ? 'heart' : 'heart-outline'}
-            size={18}
-            color={isFav ? '#E25842' : '#000'}
-          />
-        </TouchableOpacity>
-
         <View style={styles.bookInfo}>
-          <Text style={styles.bookTitle} numberOfLines={1}>
+          {item.category ? (
+            <View style={styles.categoryTag}>
+              <Text style={styles.categoryTagText} numberOfLines={1}>
+                {item.category}
+              </Text>
+            </View>
+          ) : null}
+
+          <Text style={styles.bookTitle} numberOfLines={2}>
             {item.bookName}
           </Text>
+
+          <Text style={styles.bookAuthor} numberOfLines={1}>
+            {item.author || (language === 'vi' ? 'Nhiều tác giả' : 'Various Authors')}
+          </Text>
+
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={13} color="#FFB800" />
+            <Ionicons name="star" size={13} color="#F59E0B" />
             <Text style={styles.ratingText}>
               {item.averageRating && item.averageRating > 0 ? item.averageRating.toFixed(1) : '5.0'}
             </Text>
             <Text style={styles.reviewCountText}>({item.totalReviews || 0})</Text>
           </View>
-          <Text style={styles.bookPrice}>{(item.price || 0).toLocaleString('vi-VN')} đ</Text>
+
+          <View style={styles.priceRow}>
+            <View style={styles.priceWrapper}>
+              <Text style={styles.bookPrice}>{(item.price || 0).toLocaleString('vi-VN')} đ</Text>
+              <Text style={styles.originalPrice}>{originalPrice.toLocaleString('vi-VN')} đ</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.quickAddBtn}
+              activeOpacity={0.8}
+              disabled={isAdding}
+              onPress={() => handleQuickAddToCart(item)}
+            >
+              {isAdding ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="bag-add-outline" size={16} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -184,113 +316,369 @@ export default function HomeScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#C5532A" />
+        <ActivityIndicator size="large" color="#B91C1C" />
+        <Text style={styles.loadingText}>
+          {language === 'vi' ? 'Đang chuẩn bị kho sách...' : 'Loading books...'}
+        </Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* 1. THANH TÌM KIẾM THU GỌN KÈM ICON THÔNG BÁO & GIỎ HÀNG (CỐ ĐỊNH TRÊN CÙNG KHI CUỘN) */}
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchContainer}>
+          <Ionicons
+            name="search-outline"
+            size={20}
+            color="#B91C1C"
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={
+              language === 'vi'
+                ? 'Tìm tên sách, tác giả...'
+                : 'Search books, author...'
+            }
+            placeholderTextColor="#94A3B8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearBtn}
+              onPress={() => setSearchQuery('')}
+            >
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Nút thông báo */}
+        <TouchableOpacity
+          style={styles.topActionBtn}
+          activeOpacity={0.8}
+          onPress={() => {
+            Alert.alert(
+              language === 'vi' ? 'Thông báo' : 'Notifications',
+              language === 'vi'
+                ? 'Chào bạn! Hiện tại bạn không có thông báo mới nào. Các chương trình khuyến mãi và trạng thái đơn hàng sẽ được gửi tại đây.'
+                : 'Hello! You have no new notifications right now. Promotions and order updates will appear here.'
+            );
+          }}
+        >
+          <Ionicons name="notifications-outline" size={22} color="#0F172A" />
+          <View style={styles.notificationDot} />
+        </TouchableOpacity>
+
+        {/* Nút giỏ hàng */}
+        <TouchableOpacity
+          style={styles.topActionBtn}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Cart')}
+        >
+          <Ionicons name="bag-handle-outline" size={22} color="#0F172A" />
+          {cartCount > 0 && (
+            <View style={styles.actionBadge}>
+              <Text style={styles.actionBadgeText}>
+                {cartCount > 99 ? '99+' : cartCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={displayBooks}
         keyExtractor={(item) => (item.id || item._id).toString()}
         numColumns={2}
         columnWrapperStyle={styles.row}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#C5532A']}
-            tintColor="#C5532A"
+            colors={['#B91C1C']}
+            tintColor="#B91C1C"
           />
         }
         ListHeaderComponent={
           <View>
-            <View style={styles.header}>
-              <View>
-                <Text style={styles.greeting}>{t('home.greeting')}</Text>
-                <Text style={styles.mainTitle}>{t('home.headerTitle')}</Text>
-              </View>
+            {/* 2. HERO PROMO BANNER CAROUSEL (VUỐT QUA LẠI) */}
+            <View style={styles.carouselWrapper}>
+              <ScrollView
+                ref={bannerScrollRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={onBannerScroll}
+              >
+                {/* SLIDE 1: ƯU ĐÃI THÁNG NÀY */}
+                <View style={styles.slideWrapper}>
+                  <View style={styles.bannerContainer}>
+                    <View style={styles.bannerLeft}>
+                      <View style={styles.bannerBadge}>
+                        <Text style={styles.bannerBadgeText}>
+                          {language === 'vi' ? '⚡ ƯU ĐÃI THÁNG' : '⚡ SPECIAL OFFER'}
+                        </Text>
+                      </View>
+                      <Text style={styles.bannerTitle}>
+                        {language === 'vi'
+                          ? 'Giảm 15% tất cả\nsách mới xuất bản'
+                          : '15% Off all\nnew releases'}
+                      </Text>
+                      <Text style={styles.bannerSubtitle}>
+                        {language === 'vi'
+                          ? 'Đọc nhiều hơn, biết nhiều hơn'
+                          : 'Read more, learn more'}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.bannerActionBtn}
+                        activeOpacity={0.85}
+                        onPress={() => setActiveSort('newest')}
+                      >
+                        <Text style={styles.bannerActionText}>
+                          {language === 'vi' ? 'Khám phá ngay' : 'Explore now'}
+                        </Text>
+                        <Ionicons name="arrow-forward" size={14} color="#B91C1C" />
+                      </TouchableOpacity>
+                    </View>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity
-                  style={[styles.logoutBtn, { marginRight: 8, paddingHorizontal: 10 }]}
-                  onPress={toggleLanguage}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#C5532A' }}>
-                    {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
-                  </Text>
-                </TouchableOpacity>
+                    <View style={styles.bannerRight}>
+                      <Ionicons name="book" size={44} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </View>
 
-                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                  <Ionicons name="log-out-outline" size={24} color="#C5532A" />
-                </TouchableOpacity>
-              </View>
-            </View>
+                {/* SLIDE 2: SÁCH BÁN CHẠY NHẤT (BESTSELLER SPOTLIGHT) */}
+                <View style={styles.slideWrapper}>
+                  <View style={[styles.bannerContainer, styles.bannerBestseller]}>
+                    <View style={styles.bannerLeft}>
+                      <View style={[styles.bannerBadge, { backgroundColor: '#F59E0B' }]}>
+                        <Text style={[styles.bannerBadgeText, { color: '#0F172A' }]}>
+                          {language === 'vi' ? '👑 TOP 1 BÁN CHẠY' : '👑 BEST SELLER'}
+                        </Text>
+                      </View>
+                      <Text style={styles.bannerTitle} numberOfLines={2}>
+                        {topBook ? topBook.bookName : (language === 'vi' ? 'Đắc Nhân Tâm' : 'How to Win Friends')}
+                      </Text>
+                      <Text style={[styles.bannerSubtitle, styles.bannerSubtitleLight]} numberOfLines={1}>
+                        {topBook?.author || (language === 'vi' ? 'Sách được yêu thích nhất' : 'Most loved book')} • 5.0★
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.bannerActionBtn}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          if (topBook) {
+                            navigation.navigate('Chi tiết', { book: topBook });
+                          } else {
+                            setActiveSort('bestseller');
+                          }
+                        }}
+                      >
+                        <Text style={[styles.bannerActionText, { color: '#0F172A' }]}>
+                          {language === 'vi' ? 'Xem chi tiết' : 'View details'}
+                        </Text>
+                        <Ionicons name="arrow-forward" size={14} color="#0F172A" />
+                      </TouchableOpacity>
+                    </View>
 
-            <View style={styles.searchContainer}>
-              <Ionicons name="search-outline" size={20} color="#888" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={t('home.searchPlaceholder')}
-                placeholderTextColor="#999"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
+                    {topBook?.coverImage ? (
+                      <Image
+                        source={{ uri: topBook.coverImage }}
+                        style={styles.bannerThumbImage}
+                      />
+                    ) : (
+                      <View style={[styles.bannerRight, { backgroundColor: 'rgba(245, 158, 11, 0.25)' }]}>
+                        <Ionicons name="trophy" size={42} color="#F59E0B" />
+                      </View>
+                    )}
+                  </View>
+                </View>
 
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={categories}
-              keyExtractor={(item) => item}
-              style={styles.categoryList}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.categoryBtn,
-                    activeCategory === item && styles.activeCategoryBtn,
-                  ]}
-                  onPress={() => setActiveCategory(item)}
-                >
-                  <Text
-                    style={[
-                      styles.categoryText,
-                      activeCategory === item && styles.activeCategoryText,
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
+                {/* SLIDE 3: FREESHIP & QUÀ TẶNG */}
+                <View style={styles.slideWrapper}>
+                  <View style={[styles.bannerContainer, styles.bannerFreeship]}>
+                    <View style={styles.bannerLeft}>
+                      <View style={[styles.bannerBadge, { backgroundColor: 'rgba(255, 255, 255, 0.25)' }]}>
+                        <Text style={styles.bannerBadgeText}>
+                          {language === 'vi' ? '🚚 FREESHIP 0Đ' : '🚚 FREE SHIPPING'}
+                        </Text>
+                      </View>
+                      <Text style={styles.bannerTitle}>
+                        {language === 'vi'
+                          ? 'Miễn phí vận chuyển\nđơn từ 200.000đ'
+                          : 'Free shipping on\norders over 200k'}
+                      </Text>
+                      <Text style={[styles.bannerSubtitle, styles.bannerSubtitleLight]}>
+                        {language === 'vi'
+                          ? 'Tặng kèm Bookmark cao cấp'
+                          : 'Exclusive premium bookmark'}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.bannerActionBtn}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setActiveCategory('all');
+                          setSearchQuery('');
+                        }}
+                      >
+                        <Text style={[styles.bannerActionText, { color: '#0F766E' }]}>
+                          {language === 'vi' ? 'Mua sắm ngay' : 'Shop now'}
+                        </Text>
+                        <Ionicons name="arrow-forward" size={14} color="#0F766E" />
+                      </TouchableOpacity>
+                    </View>
 
-            <View style={styles.divider} />
+                    <View style={[styles.bannerRight, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                      <Ionicons name="gift" size={44} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </View>
+              </ScrollView>
 
-            <View style={styles.sortSection}>
-              <Text style={styles.bookCount}>
-                {displayBooks.length} {t('home.booksCount')}
-              </Text>
-              <View style={styles.sortButtons}>
-                {sorts.map((sort) => (
+              {/* CHẤM CHUYỂN SLIDE (DOTS PAGINATION) */}
+              <View style={styles.dotsContainer}>
+                {[0, 1, 2].map((idx) => (
                   <TouchableOpacity
-                    key={sort.id}
-                    style={[styles.sortBtn, activeSort === sort.id && styles.activeSortBtn]}
-                    onPress={() => setActiveSort(sort.id)}
+                    key={idx}
+                    onPress={() => {
+                      bannerScrollRef.current?.scrollTo({ x: idx * width, animated: true });
+                      setActiveBannerIndex(idx);
+                    }}
                   >
-                    <Text
+                    <View
                       style={[
-                        styles.sortText,
-                        activeSort === sort.id && styles.activeSortText,
+                        styles.dot,
+                        activeBannerIndex === idx && styles.activeDot,
                       ]}
-                    >
-                      {sort.label}
-                    </Text>
+                    />
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
+
+            {/* 4. DANH MỤC THỂ LOẠI DẠNG CHIP CÓ ICON */}
+            <View style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <Text style={styles.sectionTitle}>
+                  {language === 'vi' ? 'Danh mục sách' : 'Categories'}
+                </Text>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryList}
+              >
+                {categories.map((cat) => {
+                  const isActive = activeCategory === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.categoryBtn,
+                        isActive && styles.activeCategoryBtn,
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => setActiveCategory(cat.id)}
+                    >
+                      <Ionicons
+                        name={cat.icon}
+                        size={16}
+                        color={isActive ? '#FFFFFF' : '#64748B'}
+                        style={styles.categoryIcon}
+                      />
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          isActive && styles.activeCategoryText,
+                        ]}
+                      >
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* 5. PHẦN SẮP XẾP & ĐẾM ĐẦU SÁCH */}
+            <View style={styles.sortSection}>
+              <View style={styles.sortTopRow}>
+                <Text style={styles.sectionTitle}>
+                  {language === 'vi' ? 'Gợi ý cho bạn' : 'Recommended'}
+                </Text>
+                <View style={styles.bookCountBadge}>
+                  <Text style={styles.bookCountText}>
+                    {displayBooks.length}{' '}
+                    {language === 'vi' ? 'đầu sách' : 'books'}
+                  </Text>
+                </View>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.sortScroll}
+              >
+                {sorts.map((sort) => {
+                  const isActive = activeSort === sort.id;
+                  return (
+                    <TouchableOpacity
+                      key={sort.id}
+                      style={[
+                        styles.sortBtn,
+                        isActive && styles.activeSortBtn,
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => setActiveSort(sort.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.sortText,
+                          isActive && styles.activeSortText,
+                        ]}
+                      >
+                        {sort.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="search-outline" size={36} color="#94A3B8" />
+            </View>
+            <Text style={styles.emptyTitle}>
+              {language === 'vi'
+                ? 'Không tìm thấy sách nào'
+                : 'No books found'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {language === 'vi'
+                ? 'Thử tìm với từ khóa khác hoặc chuyển sang danh mục khác nhé!'
+                : 'Try searching with another keyword or change category.'}
+            </Text>
+            <TouchableOpacity
+              style={styles.resetBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                setSearchQuery('');
+                setActiveCategory('all');
+              }}
+            >
+              <Text style={styles.resetBtnText}>
+                {language === 'vi' ? 'Xem tất cả sách' : 'View all books'}
+              </Text>
+            </TouchableOpacity>
           </View>
         }
         renderItem={renderBookItem}

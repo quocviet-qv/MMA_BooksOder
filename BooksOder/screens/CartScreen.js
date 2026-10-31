@@ -134,7 +134,7 @@ export default function CartScreen({ navigation }) {
               style={{
                 width: 28,
                 height: 28,
-                backgroundColor: '#EBE4DA',
+                backgroundColor: '#F1F5F9',
                 borderRadius: 14,
                 justifyContent: 'center',
                 alignItems: 'center',
@@ -152,7 +152,7 @@ export default function CartScreen({ navigation }) {
               style={{
                 width: 28,
                 height: 28,
-                backgroundColor: '#EBE4DA',
+                backgroundColor: '#F1F5F9',
                 borderRadius: 14,
                 justifyContent: 'center',
                 alignItems: 'center',
@@ -164,7 +164,7 @@ export default function CartScreen({ navigation }) {
         </View>
 
         <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveItem(item._id)}>
-          <Ionicons name="trash-outline" size={22} color="#E25842" />
+          <Ionicons name="trash-outline" size={22} color="#B91C1C" />
         </TouchableOpacity>
       </View>
     );
@@ -173,7 +173,7 @@ export default function CartScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.emptyContainer}>
-        <ActivityIndicator size="large" color="#C5532A" />
+        <ActivityIndicator size="large" color="#B91C1C" />
       </View>
     );
   }
@@ -183,7 +183,7 @@ export default function CartScreen({ navigation }) {
       <View style={styles.emptyContainer}>
         <View style={styles.emptyContent}>
           <View style={styles.iconCircle}>
-            <Ionicons name="bag-handle-outline" size={60} color="#C5532A" />
+            <Ionicons name="bag-handle-outline" size={60} color="#B91C1C" />
           </View>
           <Text style={styles.emptyTitle}>{t('cart.emptyTitle')}</Text>
           <Text style={styles.emptyDesc}>
@@ -216,8 +216,8 @@ export default function CartScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#C5532A']}
-            tintColor="#C5532A"
+            colors={['#B91C1C']}
+            tintColor="#B91C1C"
           />
         }
       />

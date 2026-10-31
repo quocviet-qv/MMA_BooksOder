@@ -84,7 +84,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#C5532A" />
+        <ActivityIndicator size="large" color="#B91C1C" />
         <Text style={styles.centerText}>Đang tải chi tiết đơn hàng...</Text>
       </View>
     );
@@ -137,7 +137,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       {/* CARD 1: TIẾN TRÌNH TRẠNG THÁI */}
       <View style={styles.card}>
         <View style={styles.cardTitleRow}>
-          <Ionicons name="analytics-outline" size={20} color="#C5532A" />
+          <Ionicons name="analytics-outline" size={20} color="#B91C1C" />
           <Text style={styles.cardTitle}>Trạng thái đơn hàng</Text>
         </View>
 
@@ -223,7 +223,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         {/* Thông báo chi tiết phụ theo trạng thái */}
         {!isCancelled && (
           <View style={styles.statusNoticeBox}>
-            <Ionicons name="information-circle-outline" size={18} color="#C5532A" />
+            <Ionicons name="information-circle-outline" size={18} color="#B91C1C" />
             <Text style={styles.statusNoticeText}>
               {currentStatus === 'Chờ xác nhận' && 'Cửa hàng đã nhận đơn và đang chuẩn bị đóng gói sách.'}
               {currentStatus === 'Đang vận chuyển' && 'Đơn hàng đang trên đường giao tới địa chỉ của bạn.'}
@@ -236,7 +236,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       {/* CARD 2: ĐỊA CHỈ NHẬN HÀNG */}
       <View style={styles.card}>
         <View style={styles.cardTitleRow}>
-          <Ionicons name="location-outline" size={20} color="#C5532A" />
+          <Ionicons name="location-outline" size={20} color="#B91C1C" />
           <Text style={styles.cardTitle}>Thông tin giao hàng</Text>
         </View>
 
@@ -249,7 +249,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       {/* CARD 3: DANH SÁCH SÁCH ĐÃ ĐẶT */}
       <View style={styles.card}>
         <View style={styles.cardTitleRow}>
-          <Ionicons name="book-outline" size={20} color="#C5532A" />
+          <Ionicons name="book-outline" size={20} color="#B91C1C" />
           <Text style={styles.cardTitle}>Sách đã đặt ({validItems.length})</Text>
         </View>
 
@@ -291,7 +291,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       {/* CARD 4: TỔNG KẾT THANH TOÁN */}
       <View style={styles.card}>
         <View style={styles.cardTitleRow}>
-          <Ionicons name="receipt-outline" size={20} color="#C5532A" />
+          <Ionicons name="receipt-outline" size={20} color="#B91C1C" />
           <Text style={styles.cardTitle}>Chi tiết thanh toán</Text>
         </View>
 

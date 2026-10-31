@@ -114,7 +114,7 @@ export default function AdminScreen({ navigation }) {
           style={styles.actionBtn}
           onPress={() => handleDelete(item._id || item.id)}
         >
-          <Ionicons name="trash-outline" size={20} color="#E25842" />
+          <Ionicons name="trash-outline" size={20} color="#B91C1C" />
         </TouchableOpacity>
       </View>
     </View>
@@ -125,7 +125,7 @@ export default function AdminScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Kho sách ({books.length})</Text>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={28} color="#C5532A" />
+          <Ionicons name="log-out-outline" size={28} color="#B91C1C" />
         </TouchableOpacity>
       </View>
 
@@ -139,7 +139,7 @@ export default function AdminScreen({ navigation }) {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#C5532A" />
+          <ActivityIndicator size="large" color="#B91C1C" />
         </View>
       ) : (
         <FlatList
@@ -152,8 +152,8 @@ export default function AdminScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#C5532A']}
-              tintColor="#C5532A"
+              colors={['#B91C1C']}
+              tintColor="#B91C1C"
             />
           }
         />

@@ -61,7 +61,7 @@ export default function RegisterScreen({ navigation }) {
         onPress={toggleLanguage}
         activeOpacity={0.7}
       >
-        <Ionicons name="globe-outline" size={16} color="#C5532A" />
+        <Ionicons name="globe-outline" size={16} color="#B91C1C" />
         <Text style={styles.langText}>
           {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
         </Text>

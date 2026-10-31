@@ -3,23 +3,22 @@ import { StyleSheet, Platform } from 'react-native';
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#F8F9FA',
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 15,
-    paddingBottom: 15,
-    backgroundColor: '#FAF7F2',
+    paddingTop: Platform.OS === 'android' ? 36 : 16,
+    paddingBottom: 16,
+    backgroundColor: '#F8F9FA',
   },
   mainTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   subtitle: {
     fontSize: 14,
-    color: '#777',
+    color: '#64748B',
     marginTop: 4,
   },
   // --- Filter Tabs ngang ---
@@ -32,32 +31,36 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#EBE4DA',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginHorizontal: 4,
     alignSelf: 'center',
   },
   filterTabActive: {
-    backgroundColor: '#C5532A',
+    backgroundColor: '#B91C1C',
+    borderColor: '#B91C1C',
   },
   filterTabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#555',
+    color: '#64748B',
   },
   filterTabTextActive: {
-    color: '#FFF',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   // --- Loading ---
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8F9FA',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 14,
-    color: '#777',
+    color: '#64748B',
   },
   // --- Empty State ---
   emptyContainer: {
@@ -71,34 +74,39 @@ export const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: '#EBE4DA',
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
+    fontWeight: '800',
+    color: '#0F172A',
     marginBottom: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   emptyDesc: {
     fontSize: 14,
-    color: '#777',
+    color: '#64748B',
     textAlign: 'center',
-    marginBottom: 25,
+    marginBottom: 24,
     lineHeight: 20,
   },
   shopBtn: {
-    backgroundColor: '#C5532A',
+    backgroundColor: '#B91C1C',
     paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
+    paddingHorizontal: 28,
+    borderRadius: 20,
+    shadowColor: '#B91C1C',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
   },
   shopBtnText: {
-    color: '#FFF',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: 15,
   },
   // --- Danh sách đơn hàng ---
@@ -108,16 +116,16 @@ export const styles = StyleSheet.create({
     paddingTop: 4,
   },
   orderCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#ECE6DD',
-    shadowColor: '#000',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
   },
   orderHeader: {
@@ -125,7 +133,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE4',
+    borderBottomColor: '#F1F5F9',
     paddingBottom: 10,
     marginBottom: 12,
   },
@@ -134,12 +142,12 @@ export const styles = StyleSheet.create({
   },
   orderIdText: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   orderDateText: {
     fontSize: 12,
-    color: '#888',
+    color: '#94A3B8',
     marginTop: 2,
   },
   // --- Badge trạng thái ---
@@ -150,36 +158,36 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgePending: {
-    backgroundColor: '#FFF8E1',
-    borderColor: '#FFE082',
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
   },
   badgeShipping: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#90CAF9',
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
   },
   badgeCompleted: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#A5D6A7',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
   },
   badgeCancelled: {
-    backgroundColor: '#FFEBEE',
-    borderColor: '#FFCDD2',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
   statusText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   statusPendingText: {
-    color: '#F57C00',
+    color: '#D97706',
   },
   statusShippingText: {
-    color: '#1976D2',
+    color: '#2563EB',
   },
   statusCompletedText: {
-    color: '#388E3C',
+    color: '#059669',
   },
   statusCancelledText: {
-    color: '#D32F2F',
+    color: '#DC2626',
   },
   // --- Sản phẩm trong đơn ---
   itemsList: {
@@ -193,8 +201,8 @@ export const styles = StyleSheet.create({
   bookCover: {
     width: 48,
     height: 68,
-    borderRadius: 6,
-    backgroundColor: '#EBE4DA',
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
   },
   bookInfo: {
     flex: 1,
@@ -203,13 +211,13 @@ export const styles = StyleSheet.create({
   },
   bookName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#222',
+    fontWeight: '700',
+    color: '#0F172A',
     lineHeight: 18,
   },
   bookAuthor: {
     fontSize: 12,
-    color: '#777',
+    color: '#64748B',
     marginTop: 2,
   },
   bookMetaRow: {
@@ -220,16 +228,16 @@ export const styles = StyleSheet.create({
   },
   bookQuantity: {
     fontSize: 13,
-    color: '#555',
+    color: '#64748B',
   },
   bookPrice: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#E25842',
+    fontWeight: '800',
+    color: '#B91C1C',
   },
   moreItemsText: {
     fontSize: 12,
-    color: '#888',
+    color: '#94A3B8',
     fontStyle: 'italic',
     textAlign: 'center',
     marginTop: 2,
@@ -237,7 +245,7 @@ export const styles = StyleSheet.create({
   // --- Footer thẻ đơn hàng ---
   orderFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#F0ECE4',
+    borderTopColor: '#F1F5F9',
     paddingTop: 12,
   },
   totalRow: {
@@ -248,12 +256,12 @@ export const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#64748B',
   },
   totalValue: {
     fontSize: 17,
-    fontWeight: 'bold',
-    color: '#E25842',
+    fontWeight: '800',
+    color: '#B91C1C',
   },
   actionRow: {
     flexDirection: 'row',
@@ -266,11 +274,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#D32F2F',
-    backgroundColor: '#FFF',
+    borderColor: '#EF4444',
+    backgroundColor: '#FFFFFF',
   },
   cancelBtnText: {
-    color: '#D32F2F',
+    color: '#EF4444',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -280,12 +288,16 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: '#C5532A',
+    backgroundColor: '#B91C1C',
+    shadowColor: '#B91C1C',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
   detailBtnText: {
-    color: '#FFF',
+    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginRight: 4,
   },
 });

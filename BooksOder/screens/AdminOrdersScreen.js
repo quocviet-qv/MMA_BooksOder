@@ -209,7 +209,7 @@ export default function AdminOrdersScreen({ navigation }) {
         {/* Khối thông tin khách hàng & Địa chỉ */}
         <View style={styles.customerBox}>
           <View style={styles.customerRow}>
-            <Ionicons name="person-circle-outline" size={18} color="#C5532A" />
+            <Ionicons name="person-circle-outline" size={18} color="#B91C1C" />
             <Text style={styles.customerName}>
               Khách hàng: {item.customerName || 'Khách vãng lai'}
             </Text>
@@ -264,7 +264,7 @@ export default function AdminOrdersScreen({ navigation }) {
               style={styles.btnChangeStatus}
               onPress={() => openStatusModal(item)}
             >
-              <Ionicons name="options-outline" size={15} color="#C5532A" />
+              <Ionicons name="options-outline" size={15} color="#B91C1C" />
               <Text style={styles.btnChangeStatusText}>Đổi trạng thái</Text>
             </TouchableOpacity>
 
@@ -341,7 +341,7 @@ export default function AdminOrdersScreen({ navigation }) {
           </Text>
         </View>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={26} color="#C5532A" />
+          <Ionicons name="log-out-outline" size={26} color="#B91C1C" />
         </TouchableOpacity>
       </View>
 
@@ -372,7 +372,7 @@ export default function AdminOrdersScreen({ navigation }) {
       {/* Nội dung danh sách đơn hàng */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#C5532A" />
+          <ActivityIndicator size="large" color="#B91C1C" />
           <Text style={styles.loadingText}>Đang tải toàn bộ đơn hàng...</Text>
         </View>
       ) : filteredOrders.length === 0 ? (
@@ -398,8 +398,8 @@ export default function AdminOrdersScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#C5532A']}
-              tintColor="#C5532A"
+              colors={['#B91C1C']}
+              tintColor="#B91C1C"
             />
           }
         />
@@ -444,13 +444,13 @@ export default function AdminOrdersScreen({ navigation }) {
                       <Text
                         style={[
                           styles.statusOptionText,
-                          isCurrent && { color: '#C5532A', fontWeight: 'bold' }
+                          isCurrent && { color: '#B91C1C', fontWeight: 'bold' }
                         ]}
                       >
                         {st}
                       </Text>
                       {isCurrent ? (
-                        <Ionicons name="checkmark-circle" size={20} color="#C5532A" />
+                        <Ionicons name="checkmark-circle" size={20} color="#B91C1C" />
                       ) : (
                         <Ionicons name="chevron-forward" size={18} color="#AAA" />
                       )}

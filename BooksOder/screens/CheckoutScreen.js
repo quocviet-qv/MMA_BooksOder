@@ -1,18 +1,33 @@
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
 import { API_URL } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/CheckoutScreenStyles';
 
 export default function CheckoutScreen({ route, navigation }) {
   const { totalAmount = 0 } = route.params || {};
   const { userId } = useAuth();
   const { refreshCartCount } = useCart();
+  const { t } = useLanguage();
   const [address, setAddress] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePayment = async () => {
     if (!address.trim()) {
-      return Alert.alert('Thiếu thông tin', 'Vui lòng nhập địa chỉ giao hàng!');
+      return Alert.alert(
+        t('common.warning') || 'Thiếu thông tin',
+        'Vui lòng nhập địa chỉ giao hàng!'
+      );
     }
 
     setIsProcessing(true);
@@ -29,21 +44,21 @@ export default function CheckoutScreen({ route, navigation }) {
       if (response.ok) {
         refreshCartCount(currentId);
         Alert.alert('Thành công 🎉', 'Đơn hàng của bạn đã được đặt thành công!', [
-          { 
-            text: 'Xem đơn hàng', 
-            onPress: () => navigation.navigate('Main', { screen: 'Orders' }) 
+          {
+            text: 'Xem đơn hàng',
+            onPress: () => navigation.navigate('Main', { screen: 'Orders' }),
           },
-          { 
-            text: 'Về trang chủ', 
-            onPress: () => navigation.navigate('Main', { screen: 'Home' }) 
-          }
+          {
+            text: 'Về trang chủ',
+            onPress: () => navigation.navigate('Main', { screen: 'Home' }),
+          },
         ]);
       } else {
-        Alert.alert('Lỗi thanh toán', data.message || 'Có lỗi xảy ra');
+        Alert.alert(t('common.error') || 'Lỗi thanh toán', data.message || 'Có lỗi xảy ra');
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
+      Alert.alert(t('common.error') || 'Lỗi mạng', t('common.networkError') || 'Không thể kết nối đến máy chủ Backend.');
     } finally {
       setIsProcessing(false);
     }
@@ -52,12 +67,13 @@ export default function CheckoutScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Thông tin giao hàng</Text>
-      
+
       <View style={styles.card}>
         <Text style={styles.label}>Địa chỉ nhận hàng:</Text>
-        <TextInput 
+        <TextInput
           style={styles.input}
-          placeholder="📍 Nhập địa chỉ "
+          placeholder="📍 Nhập địa chỉ nhận sách chi tiết..."
+          placeholderTextColor="#94A3B8"
           value={address}
           onChangeText={setAddress}
           multiline
@@ -71,7 +87,12 @@ export default function CheckoutScreen({ route, navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.checkoutBtn} onPress={handlePayment} disabled={isProcessing}>
+      <TouchableOpacity
+        style={styles.checkoutBtn}
+        onPress={handlePayment}
+        disabled={isProcessing}
+        activeOpacity={0.8}
+      >
         {isProcessing ? (
           <ActivityIndicator color="#FFF" />
         ) : (

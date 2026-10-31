@@ -53,7 +53,7 @@ function MainTabs() {
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#E25842',
+        tabBarActiveTintColor: '#B91C1C',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
@@ -66,7 +66,7 @@ function MainTabs() {
         options={{
           title: t('tabs.cart'),
           tabBarBadge: cartCount > 0 ? cartCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: '#E25842', color: '#FFF', fontSize: 11 },
+          tabBarBadgeStyle: { backgroundColor: '#B91C1C', color: '#FFF', fontSize: 11 },
         }}
       />
       <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: t('tabs.orders') }} />
@@ -93,7 +93,7 @@ function AdminTabs() {
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#C5532A',
+        tabBarActiveTintColor: '#B91C1C',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
@@ -126,10 +126,10 @@ function RootNavigator() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: '#FAF7F2',
+          backgroundColor: '#F8F9FA',
         }}
       >
-        <ActivityIndicator size="large" color="#C5532A" />
+        <ActivityIndicator size="large" color="#B91C1C" />
       </View>
     );
   }
@@ -173,9 +173,9 @@ function RootNavigator() {
               options={{
                 headerShown: true,
                 title: t('headers.orderDetail'),
-                headerTintColor: '#C5532A',
-                headerTitleStyle: { color: '#1A1A1A', fontWeight: 'bold' },
-                headerStyle: { backgroundColor: '#FAF7F2' },
+                headerTintColor: '#B91C1C',
+                headerTitleStyle: { color: '#0F172A', fontWeight: 'bold' },
+                headerStyle: { backgroundColor: '#F8F9FA' },
               }}
             />
           </>

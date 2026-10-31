@@ -65,7 +65,7 @@ export default function AdminDashboardScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#C5532A" />
+        <ActivityIndicator size="large" color="#B91C1C" />
         <Text style={{ marginTop: 12, color: '#666' }}>{t('common.loading')}</Text>
       </View>
     );
@@ -97,7 +97,7 @@ export default function AdminDashboardScreen() {
             style={[styles.logoutBtn, { marginRight: 8, paddingHorizontal: 10 }]}
             onPress={toggleLanguage}
           >
-            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#C5532A' }}>
+            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#B91C1C' }}>
               {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
             </Text>
           </TouchableOpacity>
@@ -158,7 +158,7 @@ export default function AdminDashboardScreen() {
 
         {/* Trạng thái đơn hàng */}
         <View style={styles.sectionHeader}>
-          <Ionicons name="pie-chart-outline" size={20} color="#C5532A" />
+          <Ionicons name="pie-chart-outline" size={20} color="#B91C1C" />
           <Text style={styles.sectionTitle}>{t('admin.orderStatusBreakdown')}</Text>
         </View>
 
@@ -214,7 +214,7 @@ export default function AdminDashboardScreen() {
 
         {/* Top sách bán chạy nhất */}
         <View style={styles.sectionHeader}>
-          <Ionicons name="trophy-outline" size={20} color="#C5532A" />
+          <Ionicons name="trophy-outline" size={20} color="#B91C1C" />
           <Text style={styles.sectionTitle}>{t('admin.topSelling')}</Text>
         </View>
 
