@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  ActivityIndicator,
+  Alert,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+import { API_URL } from '../src/constants/api';
+import { useAuth } from '../src/context/AuthContext';
 import { styles } from '../styles/LoginScreenStyles';
 
-export default function LoginScreen({ route, navigation }) {
-  // Nhận 2 hàm cập nhật trạng thái từ App.js truyền sang
-  const { setIsLoggedIn, setUserRole } = route.params;
-  
+export default function LoginScreen({ navigation }) {
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://192.168.101.105:3000';
-
   const handleLogin = async () => {
-    if (!username || !password) {
+    if (!username.trim() || !password.trim()) {
       return Alert.alert('Thiếu thông tin', 'Vui lòng nhập tài khoản và mật khẩu!');
     }
 
@@ -23,28 +28,23 @@ export default function LoginScreen({ route, navigation }) {
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
       });
-      
+
       const data = await response.json();
 
       if (response.ok) {
-        // Lưu Token và Role vào bộ nhớ máy để dùng cho lần mở app sau
-        await AsyncStorage.setItem('userToken', data.token || 'dummy_token');
-        await AsyncStorage.setItem('userRole', data.role || 'user');
-        
-        // Nếu BE có trả về userId thực tế, lưu lại luôn để dùng thay cho 'user123'
-        if (data.userId) {
-           await AsyncStorage.setItem('userId', data.userId.toString());
-        }
-
-        // Kích hoạt App.js đổi sang giao diện chính
-        setUserRole(data.role || 'user');
-        setIsLoggedIn(true);
+        // Cập nhật AuthContext (tự động đổi giao diện theo Role)
+        await login({
+          token: data.token || 'dummy_token',
+          role: data.role || 'user',
+          userId: data.userId || 'user123',
+        });
       } else {
         Alert.alert('Đăng nhập thất bại', data.message || 'Sai tài khoản hoặc mật khẩu');
       }
     } catch (error) {
+      console.error('Lỗi đăng nhập:', error);
       Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
     } finally {
       setLoading(false);
@@ -57,20 +57,30 @@ export default function LoginScreen({ route, navigation }) {
       <Text style={styles.subtitle}>Đăng nhập để xem giỏ hàng và kho sách của bạn</Text>
 
       <View style={styles.inputContainer}>
-        <TextInput 
-          style={styles.input} placeholder="Tên đăng nhập" 
-          value={username} onChangeText={setUsername} autoCapitalize="none" 
+        <TextInput
+          style={styles.input}
+          placeholder="Tên đăng nhập"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
         />
       </View>
       <View style={styles.inputContainer}>
-        <TextInput 
-          style={styles.input} placeholder="Mật khẩu" 
-          value={password} onChangeText={setPassword} secureTextEntry 
+        <TextInput
+          style={styles.input}
+          placeholder="Mật khẩu"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
         />
       </View>
 
       <TouchableOpacity style={styles.btn} onPress={handleLogin} disabled={loading}>
-        {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>ĐĂNG NHẬP</Text>}
+        {loading ? (
+          <ActivityIndicator color="#FFF" />
+        ) : (
+          <Text style={styles.btnText}>ĐĂNG NHẬP</Text>
+        )}
       </TouchableOpacity>
 
       <View style={styles.linkContainer}>

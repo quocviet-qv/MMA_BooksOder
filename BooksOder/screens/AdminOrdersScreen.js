@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { API_URL } from '../src/constants/api';
+import { useAuth } from '../src/context/AuthContext';
 import { styles } from '../styles/AdminOrdersScreenStyles';
 
 const FILTER_TABS = [
@@ -33,8 +34,8 @@ const ALL_STATUSES = [
   'Đã hủy'
 ];
 
-export default function AdminOrdersScreen({ navigation, route }) {
-  const { setIsLoggedIn, setUserRole } = route.params || {};
+export default function AdminOrdersScreen({ navigation }) {
+  const { logout } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,11 +81,7 @@ export default function AdminOrdersScreen({ navigation, route }) {
       {
         text: 'Đăng xuất',
         style: 'destructive',
-        onPress: async () => {
-          await AsyncStorage.multiRemove(['userToken', 'userRole', 'userId']);
-          setUserRole?.(null);
-          setIsLoggedIn?.(false);
-        }
+        onPress: () => logout(),
       }
     ]);
   };

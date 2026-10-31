@@ -1,17 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-
-// Import bộ style từ file riêng
+import { API_URL } from '../src/constants/api';
+import { useAuth } from '../src/context/AuthContext';
+import { useCart } from '../src/context/CartContext';
 import { styles } from '../styles/CheckoutScreenStyles';
 
 export default function CheckoutScreen({ route, navigation }) {
-  // Nhận tổng tiền từ màn hình Giỏ hàng truyền sang
-  const { totalAmount } = route.params; 
+  const { totalAmount = 0 } = route.params || {};
+  const { userId } = useAuth();
+  const { refreshCartCount } = useCart();
   const [address, setAddress] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-
-  const userId = 'user123';
-  const API_URL = 'http://192.168.101.105:3000';
 
   const handlePayment = async () => {
     if (!address.trim()) {
@@ -20,15 +17,17 @@ export default function CheckoutScreen({ route, navigation }) {
 
     setIsProcessing(true);
     try {
+      const currentId = userId || 'user123';
       const response = await fetch(`${API_URL}/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, address })
+        body: JSON.stringify({ userId: currentId, address: address.trim() }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        refreshCartCount(currentId);
         Alert.alert('Thành công 🎉', 'Đơn hàng của bạn đã được đặt thành công!', [
           { 
             text: 'Xem đơn hàng', 

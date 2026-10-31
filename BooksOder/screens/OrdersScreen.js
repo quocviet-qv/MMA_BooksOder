@@ -13,7 +13,8 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL, getCurrentUserId } from '../src/constants/api';
+import { API_URL } from '../src/constants/api';
+import { useAuth } from '../src/context/AuthContext';
 import { styles } from '../styles/OrdersScreenStyles';
 
 const FILTER_TABS = [
@@ -25,23 +26,22 @@ const FILTER_TABS = [
 ];
 
 export default function OrdersScreen({ navigation }) {
+  const { userId } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('Tất cả');
-  const [userId, setUserId] = useState('user123');
   const [cancellingId, setCancellingId] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
       loadOrders();
-    }, [])
+    }, [userId])
   );
 
   const loadOrders = async () => {
     try {
-      const uid = await getCurrentUserId();
-      setUserId(uid);
+      const uid = userId || 'user123';
       const response = await fetch(`${API_URL}/orders/${uid}`);
       if (response.ok) {
         const data = await response.json();

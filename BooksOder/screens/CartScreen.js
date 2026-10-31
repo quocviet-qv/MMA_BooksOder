@@ -1,109 +1,238 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-// Import bộ style từ file riêng
+import { API_URL } from '../src/constants/api';
+import { useAuth } from '../src/context/AuthContext';
+import { useCart } from '../src/context/CartContext';
 import { styles } from '../styles/CartScreenStyles';
 
 export default function CartScreen({ navigation }) {
+  const { userId } = useAuth();
+  const { refreshCartCount } = useCart();
+
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  const userId = 'user123'; 
-  const API_URL = 'http://192.168.101.105:3000'; 
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       fetchCart();
-    }, [])
+    }, [userId])
   );
 
   const fetchCart = async () => {
-    setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/cart/${userId}`);
-      const data = await response.json();
-      setCartItems(data);
+      const currentId = userId || 'user123';
+      const response = await fetch(`${API_URL}/cart/${currentId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const validItems = Array.isArray(data) ? data.filter((item) => item && item.bookId) : [];
+        setCartItems(validItems);
+      }
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi mạng', 'Không thể tải giỏ hàng từ Backend');
+      Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchCart();
+    refreshCartCount(userId);
+  };
+
+  const handleUpdateQuantity = async (cartItemId, newQuantity) => {
+    try {
+      const response = await fetch(`${API_URL}/cart/${cartItemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: newQuantity }),
+      });
+
+      if (response.ok) {
+        if (newQuantity <= 0) {
+          setCartItems((prev) => prev.filter((item) => item._id !== cartItemId));
+        } else {
+          setCartItems((prev) =>
+            prev.map((item) =>
+              item._id === cartItemId ? { ...item, quantity: newQuantity } : item
+            )
+          );
+        }
+        refreshCartCount(userId);
+      }
+    } catch (error) {
+      console.error('Lỗi cập nhật số lượng:', error);
+    }
+  };
+
+  const handleRemoveItem = async (cartItemId) => {
+    Alert.alert('Xác nhận', 'Bạn có muốn bỏ sản phẩm này khỏi giỏ hàng?', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const response = await fetch(`${API_URL}/cart/${cartItemId}`, {
+              method: 'DELETE',
+            });
+            if (response.ok) {
+              setCartItems((prev) => prev.filter((item) => item._id !== cartItemId));
+              refreshCartCount(userId);
+            }
+          } catch (error) {
+            Alert.alert('Lỗi', 'Không thể xóa sản phẩm khỏi giỏ hàng.');
+          }
+        },
+      },
+    ]);
+  };
+
+  // Tính tổng tiền giỏ hàng
   const totalAmount = cartItems.reduce((sum, item) => {
-    return sum + (item.bookId?.price * item.quantity);
+    const price = item.bookId?.price || 0;
+    return sum + price * (item.quantity || 1);
   }, 0);
 
-  const handleGoToCheckout = () => {
-    if (cartItems.length === 0) {
-      return Alert.alert('Thông báo', 'Giỏ hàng của bạn đang trống!');
-    }
-    // Chuyển sang màn hình Checkout và truyền tổng tiền sang đó
-    navigation.navigate('Checkout', { totalAmount });
+  const renderItem = ({ item }) => {
+    const book = item.bookId || {};
+    return (
+      <View style={styles.cartItem}>
+        <Image
+          source={{ uri: book.coverImage || 'https://via.placeholder.com/150' }}
+          style={styles.itemImage}
+        />
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemTitle} numberOfLines={1}>
+            {book.bookName || 'Sách'}
+          </Text>
+          <Text style={styles.itemPrice}>
+            {((book.price || 0) * (item.quantity || 1)).toLocaleString('vi-VN')} đ
+          </Text>
+
+          {/* Bộ tăng giảm số lượng */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+            <TouchableOpacity
+              onPress={() => handleUpdateQuantity(item._id, item.quantity - 1)}
+              style={{
+                width: 28,
+                height: 28,
+                backgroundColor: '#EBE4DA',
+                borderRadius: 14,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>-</Text>
+            </TouchableOpacity>
+
+            <Text style={{ marginHorizontal: 12, fontSize: 14, fontWeight: 'bold' }}>
+              {item.quantity}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => handleUpdateQuantity(item._id, item.quantity + 1)}
+              style={{
+                width: 28,
+                height: 28,
+                backgroundColor: '#EBE4DA',
+                borderRadius: 14,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveItem(item._id)}>
+          <Ionicons name="trash-outline" size={22} color="#E25842" />
+        </TouchableOpacity>
+      </View>
+    );
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.cartItem}>
-      <Image source={{ uri: item.bookId?.coverImage }} style={styles.itemImage} />
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemTitle} numberOfLines={2}>{item.bookId?.bookName}</Text>
-        <Text style={styles.itemPrice}>{item.bookId?.price?.toLocaleString('vi-VN')} đ</Text>
-        <Text style={{ color: '#666', marginTop: 5 }}>Số lượng: {item.quantity}</Text>
-      </View>
-    </View>
-  );
-
   if (loading) {
-    return <ActivityIndicator size="large" color="#C5532A" style={{ flex: 1, justifyContent: 'center' }} />;
+    return (
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="large" color="#C5532A" />
+      </View>
+    );
+  }
+
+  if (cartItems.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyContent}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="bag-handle-outline" size={60} color="#C5532A" />
+          </View>
+          <Text style={styles.emptyTitle}>Giỏ hàng đang trống!</Text>
+          <Text style={styles.emptyDesc}>
+            Hãy dạo quanh một vòng và chọn cho mình những cuốn sách thật ưng ý nhé.
+          </Text>
+          <TouchableOpacity
+            style={styles.exploreBtn}
+            onPress={() => navigation.navigate('Home')}
+          >
+            <Text style={styles.exploreBtnText}>Khám phá sách ngay</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.mainTitle}>Giỏ hàng của bạn</Text>
+        <Text style={styles.mainTitle}>Giỏ hàng</Text>
       </View>
-      
-      {cartItems.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyContent}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="cart-outline" size={60} color="#C5532A" />
-            </View>
-            <Text style={styles.emptyTitle}>Giỏ hàng trống</Text>
-            <Text style={styles.emptyDesc}>Bạn chưa có cuốn sách nào trong giỏ hàng. Hãy khám phá thêm nhé!</Text>
-            <TouchableOpacity 
-              style={styles.exploreBtn}
-              onPress={() => navigation.navigate('Home')}
-            >
-              <Text style={styles.exploreBtnText}>Khám phá ngay</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <>
-          <FlatList
-            data={cartItems}
-            keyExtractor={item => item._id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
+
+      <FlatList
+        data={cartItems}
+        keyExtractor={(item) => item._id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#C5532A']}
+            tintColor="#C5532A"
           />
-          
-          <View style={styles.footer}>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tổng thanh toán:</Text>
-              <Text style={styles.totalValue}>{totalAmount.toLocaleString('vi-VN')} đ</Text>
-            </View>
-            
-            <TouchableOpacity style={styles.checkoutBtn} onPress={handleGoToCheckout}>
-              <Text style={styles.checkoutBtnText}>MUA HÀNG</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
+        }
+      />
+
+      <View style={styles.footer}>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Tổng cộng:</Text>
+          <Text style={styles.totalValue}>{totalAmount.toLocaleString('vi-VN')} đ</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.checkoutBtn}
+          onPress={() => navigation.navigate('Checkout', { totalAmount })}
+        >
+          <Text style={styles.checkoutBtnText}>THANH TOÁN NGAY</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

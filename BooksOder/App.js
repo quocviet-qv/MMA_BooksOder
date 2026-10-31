@@ -1,22 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
+
+import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { CartProvider, useCart } from './src/context/CartContext';
 
 // Import các màn hình User & Admin
 import AdminFormScreen from './screens/AdminFormScreen';
-import AdminScreen from './screens/AdminScreen';
 import AdminOrdersScreen from './screens/AdminOrdersScreen';
+import AdminScreen from './screens/AdminScreen';
 import CartScreen from './screens/CartScreen';
+import CheckoutScreen from './screens/CheckoutScreen';
 import DetailScreen from './screens/DetailScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
 import HomeScreen from './screens/HomeScreen';
-import CheckoutScreen from './screens/CheckoutScreen';
-import OrdersScreen from './screens/OrdersScreen';
 import OrderDetailScreen from './screens/OrderDetailScreen';
+import OrdersScreen from './screens/OrdersScreen';
 
 // Import các màn hình Xác thực
 import LoginScreen from './screens/LoginScreen';
@@ -25,15 +27,15 @@ import RegisterScreen from './screens/RegisterScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// 1. Cụm Tab cho User bình thường (Người mua sách)
-function MainTabs({ route }) {
-  const { setIsLoggedIn, setUserRole } = route.params || {};
+// 1. Cụm Tab cho User bình thường (kèm Badge giỏ hàng nhảy số realtime)
+function MainTabs() {
+  const { cartCount } = useCart();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Favorites') {
@@ -43,25 +45,31 @@ function MainTabs({ route }) {
           } else if (route.name === 'Orders') {
             iconName = focused ? 'receipt' : 'receipt-outline';
           }
-          
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#E25842', // Màu cam đỏ
+        tabBarActiveTintColor: '#E25842',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} initialParams={{ setIsLoggedIn, setUserRole }} options={{ title: 'Trang chủ' }} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Trang chủ' }} />
       <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'Yêu thích' }} />
-      <Tab.Screen name="Cart" component={CartScreen} options={{ title: 'Giỏ hàng' }} />
+      <Tab.Screen
+        name="Cart"
+        component={CartScreen}
+        options={{
+          title: 'Giỏ hàng',
+          tabBarBadge: cartCount > 0 ? cartCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#E25842', color: '#FFF', fontSize: 11 },
+        }}
+      />
       <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: 'Đơn hàng' }} />
     </Tab.Navigator>
   );
 }
 
 // 2. Cụm Tab cho Quản trị viên (Kho sách & Quản lý đơn hàng)
-function AdminTabs({ route }) {
-  const { setIsLoggedIn, setUserRole } = route.params || {};
+function AdminTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -79,53 +87,31 @@ function AdminTabs({ route }) {
         headerShown: false,
       })}
     >
-      <Tab.Screen
-        name="AdminBooks"
-        component={AdminScreen}
-        initialParams={{ setIsLoggedIn, setUserRole }}
-        options={{ title: 'Kho sách' }}
-      />
+      <Tab.Screen name="AdminBooks" component={AdminScreen} options={{ title: 'Kho sách' }} />
       <Tab.Screen
         name="AdminOrdersTab"
         component={AdminOrdersScreen}
-        initialParams={{ setIsLoggedIn, setUserRole }}
         options={{ title: 'Đơn hàng' }}
       />
     </Tab.Navigator>
   );
 }
 
-// 3. KHUNG ĐIỀU HƯỚNG CHÍNH (GLOBAL STACK)
-export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState(null); // 'admin' hoặc 'user'
+// 3. Khung điều hướng chính (Root Navigator kết nối với AuthContext)
+function RootNavigator() {
+  const { isLoading, isLoggedIn, userRole } = useAuth();
 
-  // Kiểm tra trạng thái đăng nhập khi mở app
-  useEffect(() => {
-    const checkLoginStatus = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        const role = await AsyncStorage.getItem('userRole');
-        
-        if (token) {
-          setIsLoggedIn(true);
-          setUserRole(role);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setIsLoading(false); // Dừng màn hình chờ
-      }
-    };
-    
-    checkLoginStatus();
-  }, []);
-
-  // Màn hình chờ (Loading) trong lúc kiểm tra bộ nhớ
+  // Màn hình chờ (Loading) trong lúc kiểm tra bộ nhớ AsyncStorage
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#FAF7F2',
+        }}
+      >
         <ActivityIndicator size="large" color="#C5532A" />
       </View>
     );
@@ -137,52 +123,54 @@ export default function App() {
         {!isLoggedIn ? (
           // LUỒNG 1: Chưa đăng nhập -> Hiện Đăng nhập & Đăng ký
           <>
-            <Stack.Screen 
-              name="Login" 
-              component={LoginScreen} 
-              // Truyền hàm xuống LoginScreen để cập nhật trạng thái sau khi đăng nhập thành công
-              initialParams={{ setIsLoggedIn, setUserRole }} 
-            />
-            <Stack.Screen 
-              name="Register" 
-              component={RegisterScreen} 
-            />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
           </>
-       ) : userRole === 'admin' ? (
+        ) : userRole === 'admin' ? (
           // LUỒNG 2: Đã đăng nhập với tài khoản Admin
           <>
-            <Stack.Screen 
-              name="Admin" 
-              component={AdminTabs} 
-              initialParams={{ setIsLoggedIn, setUserRole }} 
-            />
-            <Stack.Screen 
-              name="AdminForm" 
-              component={AdminFormScreen} 
-              options={{ headerShown: true, title: 'Thông tin sách' }} 
+            <Stack.Screen name="Admin" component={AdminTabs} />
+            <Stack.Screen
+              name="AdminForm"
+              component={AdminFormScreen}
+              options={{ headerShown: true, title: 'Thông tin sách' }}
             />
           </>
         ) : (
           // LUỒNG 3: Đã đăng nhập với tài khoản User bình thường
           <>
-            <Stack.Screen name="Main" component={MainTabs} initialParams={{ setIsLoggedIn, setUserRole }} />
+            <Stack.Screen name="Main" component={MainTabs} />
             <Stack.Screen name="Chi tiết" component={DetailScreen} options={{ headerShown: true }} />
-            {/* Đã thêm màn hình Checkout vào luồng User */}
-            <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ headerShown: true, title: 'Thanh toán' }} />
-            <Stack.Screen 
-              name="OrderDetail" 
-              component={OrderDetailScreen} 
-              options={{ 
-                headerShown: true, 
+            <Stack.Screen
+              name="Checkout"
+              component={CheckoutScreen}
+              options={{ headerShown: true, title: 'Thanh toán' }}
+            />
+            <Stack.Screen
+              name="OrderDetail"
+              component={OrderDetailScreen}
+              options={{
+                headerShown: true,
                 title: 'Chi tiết đơn hàng',
                 headerTintColor: '#C5532A',
                 headerTitleStyle: { color: '#1A1A1A', fontWeight: 'bold' },
-                headerStyle: { backgroundColor: '#FAF7F2' }
-              }} 
+                headerStyle: { backgroundColor: '#FAF7F2' },
+              }}
             />
           </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
+  );
+}
+
+// 4. Component gốc: Bọc AuthProvider và CartProvider cho toàn bộ ứng dụng
+export default function App() {
+  return (
+    <AuthProvider>
+      <CartProvider>
+        <RootNavigator />
+      </CartProvider>
+    </AuthProvider>
   );
 }

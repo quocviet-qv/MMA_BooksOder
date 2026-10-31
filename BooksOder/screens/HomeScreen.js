@@ -1,129 +1,131 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  RefreshControl,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Import bộ style từ file riêng
+import { API_URL } from '../src/constants/api';
+import { useAuth } from '../src/context/AuthContext';
+import { useCart } from '../src/context/CartContext';
 import { styles } from '../styles/HomeScreenStyles';
 
-export default function HomeScreen({ navigation, route }) {
-  const { setIsLoggedIn, setUserRole } = route.params || {};
+const categories = ['Tất cả', 'Tiểu thuyết', 'Kinh tế', 'Kỹ năng sống', 'Công nghệ', 'Văn học'];
+const sorts = ['Bán chạy', 'Mới nhất', 'Giá tăng dần', 'Giá giảm dần'];
+
+export default function HomeScreen({ navigation }) {
+  const { userId, logout } = useAuth();
+  const { refreshCartCount } = useCart();
+
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('Tất cả');
   const [activeSort, setActiveSort] = useState('Bán chạy');
   const [searchQuery, setSearchQuery] = useState('');
-  const [favorites, setFavorites] = useState([]); // Mảng chứa ID các sách đã thích
-
-  const userId = 'user123';
-  const API_URL = 'http://192.168.101.105:3000';
+  const [favorites, setFavorites] = useState([]);
 
   const handleLogout = () => {
-    Alert.alert("Xác nhận", "Bạn có chắc chắn muốn đăng xuất?", [
-      { text: "Hủy", style: "cancel" },
-      { 
-        text: "Đăng xuất", 
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await AsyncStorage.multiRemove(['userToken', 'userRole']);
-            setUserRole?.(null);
-            setIsLoggedIn?.(false);
-          } catch (error) {
-            console.error('Không thể đăng xuất:', error);
-            Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
-          }
-        }
-      }
+    Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn đăng xuất?', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Đăng xuất',
+        style: 'destructive',
+        onPress: () => logout(),
+      },
     ]);
   };
 
-  // Gọi API lấy danh sách sách
-  useEffect(() => {
-    fetch(`${API_URL}/books`)
-      .then((response) => response.json())
-      .then((data) => {
-        setBooks(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error(error);
-        setLoading(false);
-      });
-  }, []);
-
-  // Tự động tải lại danh sách yêu thích từ API mỗi khi quay lại trang chủ
   useFocusEffect(
     useCallback(() => {
-      fetchFavorites();
-    }, [])
+      loadHomeData();
+      refreshCartCount(userId);
+    }, [userId])
   );
 
-  const fetchFavorites = async () => {
+  const loadHomeData = async () => {
     try {
-      const response = await fetch(`${API_URL}/favorites/${userId}`);
-      const data = await response.json();
-      // Trích xuất ID sách để dễ dàng kiểm tra ở hàm render
-      const favIds = data.map(fav => fav.bookId._id || fav.bookId);
-      setFavorites(favIds);
-    } catch (error) {
-      console.error('Lỗi tải danh sách yêu thích:', error);
-    }
-  };
+      const currentId = userId || 'user123';
+      const [booksRes, favRes] = await Promise.all([
+        fetch(`${API_URL}/books`),
+        fetch(`${API_URL}/favorites/${currentId}`),
+      ]);
 
-  // Hàm xử lý Thêm/Xóa khỏi danh sách yêu thích qua API
-  const toggleFavorite = async (book) => {
-    // Đảo trạng thái trên UI ngay lập tức cho mượt
-    const isExist = favorites.includes(book.id);
-    if (isExist) {
-      setFavorites(favorites.filter(id => id !== book.id));
-    } else {
-      setFavorites([...favorites, book.id]);
-    }
+      if (booksRes.ok) {
+        const booksData = await booksRes.json();
+        setBooks(Array.isArray(booksData) ? booksData : []);
+      }
 
-    // Gọi API lưu vào DB
-    try {
-      const response = await fetch(`${API_URL}/favorites`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, bookId: book.id })
-      });
-      
-      // Nếu API lỗi, tự động fetch lại để đồng bộ với server
-      if (!response.ok) {
-        fetchFavorites();
+      if (favRes.ok) {
+        const favData = await favRes.json();
+        const favIds = (Array.isArray(favData) ? favData : [])
+          .filter((fav) => fav && fav.bookId)
+          .map((fav) => (fav.bookId._id || fav.bookId).toString());
+        setFavorites(favIds);
       }
     } catch (error) {
-      console.error(error);
-      fetchFavorites();
+      console.error('Lỗi tải dữ liệu trang chủ:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const categories = ['Tất cả', 'Tiểu thuyết', 'Kỹ năng sống', 'Khoa học'];
-  const sorts = ['Bán chạy', 'Giá thấp', 'Giá cao'];
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadHomeData();
+  };
 
-  // Lọc sách theo danh mục và từ khóa tìm kiếm
-  let displayBooks = books.filter(book => {
+  const toggleFavorite = async (book) => {
+    const bookId = (book.id || book._id).toString();
+    const isExist = favorites.includes(bookId);
+
+    if (isExist) {
+      setFavorites(favorites.filter((id) => id !== bookId));
+    } else {
+      setFavorites([...favorites, bookId]);
+    }
+
+    try {
+      const currentId = userId || 'user123';
+      await fetch(`${API_URL}/favorites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentId, bookId }),
+      });
+    } catch (error) {
+      console.error('Lỗi khi thả tim:', error);
+    }
+  };
+
+  // Lọc và sắp xếp sách hiển thị
+  let displayBooks = books.filter((book) => {
     const matchCategory = activeCategory === 'Tất cả' || book.category === activeCategory;
-    const keyword = searchQuery.toLowerCase();
-    const matchSearch = book.bookName.toLowerCase().includes(keyword) || 
-                        book.author.toLowerCase().includes(keyword);
-
+    const query = searchQuery.toLowerCase().trim();
+    const matchSearch =
+      (book.bookName && book.bookName.toLowerCase().includes(query)) ||
+      (book.author && book.author.toLowerCase().includes(query));
     return matchCategory && matchSearch;
   });
 
-  // Sắp xếp sách theo giá
-  if (activeSort === 'Giá thấp') {
+  if (activeSort === 'Giá tăng dần') {
     displayBooks.sort((a, b) => a.price - b.price);
-  } else if (activeSort === 'Giá cao') {
+  } else if (activeSort === 'Giá giảm dần') {
     displayBooks.sort((a, b) => b.price - a.price);
   }
 
   const renderBookItem = ({ item }) => {
-    // Kiểm tra xem ID sách có nằm trong danh sách yêu thích từ API không
-    const isFav = favorites.includes(item.id);
+    const itemId = (item.id || item._id).toString();
+    const isFav = favorites.includes(itemId);
 
     return (
       <TouchableOpacity
@@ -131,34 +133,31 @@ export default function HomeScreen({ navigation, route }) {
         onPress={() => navigation.navigate('Chi tiết', { book: item })}
       >
         <Image source={{ uri: item.coverImage }} style={styles.coverImage} />
-        
+
         <View style={styles.discountBadge}>
           <Text style={styles.discountText}>-15%</Text>
         </View>
 
-        <TouchableOpacity 
-          style={styles.favoriteBtn} 
-          onPress={() => toggleFavorite(item)}
-        >
-          <Ionicons 
-            name={isFav ? "heart" : "heart-outline"} 
-            size={18} 
-            color={isFav ? "#E25842" : "#000"} 
+        <TouchableOpacity style={styles.favoriteBtn} onPress={() => toggleFavorite(item)}>
+          <Ionicons
+            name={isFav ? 'heart' : 'heart-outline'}
+            size={18}
+            color={isFav ? '#E25842' : '#000'}
           />
         </TouchableOpacity>
 
         <View style={styles.bookInfo}>
-          <Text style={styles.bookTitle} numberOfLines={1}>{item.bookName}</Text>
+          <Text style={styles.bookTitle} numberOfLines={1}>
+            {item.bookName}
+          </Text>
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={13} color="#FFB800" />
             <Text style={styles.ratingText}>
               {item.averageRating && item.averageRating > 0 ? item.averageRating.toFixed(1) : '5.0'}
             </Text>
-            <Text style={styles.reviewCountText}>
-              ({item.totalReviews || 0})
-            </Text>
+            <Text style={styles.reviewCountText}>({item.totalReviews || 0})</Text>
           </View>
-          <Text style={styles.bookPrice}>{item.price.toLocaleString('vi-VN')} đ</Text>
+          <Text style={styles.bookPrice}>{(item.price || 0).toLocaleString('vi-VN')} đ</Text>
         </View>
       </TouchableOpacity>
     );
@@ -167,7 +166,7 @@ export default function HomeScreen({ navigation, route }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" color="#C5532A" />
       </View>
     );
   }
@@ -176,10 +175,18 @@ export default function HomeScreen({ navigation, route }) {
     <SafeAreaView style={styles.container}>
       <FlatList
         data={displayBooks}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => (item.id || item._id).toString()}
         numColumns={2}
         columnWrapperStyle={styles.row}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#C5532A']}
+            tintColor="#C5532A"
+          />
+        }
         ListHeaderComponent={
           <View>
             <View style={styles.header}>
@@ -187,7 +194,7 @@ export default function HomeScreen({ navigation, route }) {
                 <Text style={styles.greeting}>Xin chào 👋</Text>
                 <Text style={styles.mainTitle}>Hôm nay bạn muốn{'\n'}đọc gì?</Text>
               </View>
-              
+
               <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
                 <Ionicons name="log-out-outline" size={26} color="#C5532A" />
               </TouchableOpacity>
@@ -200,7 +207,7 @@ export default function HomeScreen({ navigation, route }) {
                 placeholder="Tìm theo tên sách hoặc tác giả"
                 placeholderTextColor="#999"
                 value={searchQuery}
-                onChangeText={(text) => setSearchQuery(text)}
+                onChangeText={setSearchQuery}
               />
             </View>
 
@@ -212,10 +219,18 @@ export default function HomeScreen({ navigation, route }) {
               style={styles.categoryList}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.categoryBtn, activeCategory === item && styles.activeCategoryBtn]}
+                  style={[
+                    styles.categoryBtn,
+                    activeCategory === item && styles.activeCategoryBtn,
+                  ]}
                   onPress={() => setActiveCategory(item)}
                 >
-                  <Text style={[styles.categoryText, activeCategory === item && styles.activeCategoryText]}>
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      activeCategory === item && styles.activeCategoryText,
+                    ]}
+                  >
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -233,7 +248,14 @@ export default function HomeScreen({ navigation, route }) {
                     style={[styles.sortBtn, activeSort === sort && styles.activeSortBtn]}
                     onPress={() => setActiveSort(sort)}
                   >
-                    <Text style={[styles.sortText, activeSort === sort && styles.activeSortText]}>{sort}</Text>
+                    <Text
+                      style={[
+                        styles.sortText,
+                        activeSort === sort && styles.activeSortText,
+                      ]}
+                    >
+                      {sort}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>

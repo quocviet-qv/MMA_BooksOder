@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { API_URL, getCurrentUserId } from '../src/constants/api';
+import { useCart } from '../src/context/CartContext';
 import { styles } from '../styles/DetailScreenStyles';
 
 const STAR_MOODS = {
@@ -27,6 +28,7 @@ const STAR_MOODS = {
 export default function DetailScreen({ route, navigation }) {
   const { book } = route.params;
   const bookId = (book.id || book._id).toString();
+  const { refreshCartCount } = useCart();
 
   const [isAdding, setIsAdding] = useState(false);
   const [isFav, setIsFav] = useState(false);
@@ -121,6 +123,7 @@ export default function DetailScreen({ route, navigation }) {
       });
 
       if (response.ok) {
+        refreshCartCount(userId);
         Alert.alert('Thành công', 'Đã thêm sách vào giỏ hàng!', [
           { text: 'Tiếp tục mua sắm', style: 'cancel' },
           { text: 'Đến Giỏ hàng', onPress: () => navigation.navigate('Main', { screen: 'Cart' }) }
