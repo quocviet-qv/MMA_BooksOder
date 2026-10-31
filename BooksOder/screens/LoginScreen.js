@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/LoginScreenStyles';
@@ -31,7 +31,7 @@ export default function LoginScreen({ navigation }) {
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
 
       const data = await response.json();
@@ -39,9 +39,9 @@ export default function LoginScreen({ navigation }) {
       if (response.ok) {
         // Cập nhật AuthContext (tự động đổi giao diện theo Role)
         await login({
-          token: data.token || 'dummy_token',
+          token: data.token,
           role: data.role || 'user',
-          userId: data.userId || 'user123',
+          userId: data.userId,
           username: data.username || username.trim(),
         });
       } else {

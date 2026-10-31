@@ -1,5 +1,6 @@
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +11,8 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
+import PaymentPanel from '../src/components/PaymentPanel';
 import { styles } from '../styles/OrderDetailScreenStyles';
 
 export default function OrderDetailScreen({ route, navigation }) {
@@ -19,11 +21,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(!initialOrder);
   const [cancelling, setCancelling] = useState(false);
 
-  useEffect(() => {
-    fetchOrderDetail();
-  }, [orderId]);
-
-  const fetchOrderDetail = async () => {
+  const fetchOrderDetail = useCallback(async () => {
     if (!orderId) return;
     try {
       const res = await fetch(`${API_URL}/orders/detail/${orderId}`);
@@ -36,7 +34,10 @@ export default function OrderDetailScreen({ route, navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId]);
+
+
+  useFocusEffect(useCallback(() => { fetchOrderDetail(); }, [fetchOrderDetail]));
 
   const normalizeStatus = (status) => {
     if (status === 'Đang xử lý' || status === 'Chờ xác nhận') return 'Chờ xác nhận';
@@ -233,6 +234,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
       </View>
 
+      <PaymentPanel order={order} onUpdate={setOrder} />
       {/* CARD 2: ĐỊA CHỈ NHẬN HÀNG */}
       <View style={styles.card}>
         <View style={styles.cardTitleRow}>

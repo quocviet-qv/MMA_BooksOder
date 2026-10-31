@@ -1,7 +1,5 @@
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-const { width } = Dimensions.get('window');
-const STAT_CARD_WIDTH = (width - 48) / 2;
 
 export const styles = StyleSheet.create({
   container: {
@@ -78,7 +76,7 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   kpiCard: {
-    width: STAT_CARD_WIDTH,
+    width: '48.5%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -23,7 +23,7 @@ import { styles } from '../styles/FavoritesScreenStyles';
 export default function FavoritesScreen({ navigation }) {
   const { userId } = useAuth();
   const { cartCount, refreshCartCount } = useCart();
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
 
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,14 +32,8 @@ export default function FavoritesScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [addingCartId, setAddingCartId] = useState(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchFavorites();
-      refreshCartCount(userId);
-    }, [userId])
-  );
 
-  const fetchFavorites = async () => {
+  const fetchFavorites = useCallback(async () => {
     try {
       const currentId = userId || 'user123';
       const response = await fetch(`${API_URL}/favorites/${currentId}`);
@@ -56,7 +50,10 @@ export default function FavoritesScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [userId]);
+
+
+  useFocusEffect(useCallback(() => { fetchFavorites(); refreshCartCount(userId); }, [fetchFavorites, refreshCartCount, userId]));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -81,7 +78,7 @@ export default function FavoritesScreen({ navigation }) {
         // Rollback nếu có lỗi mạng
         fetchFavorites();
       }
-    } catch (error) {
+    } catch (_error) {
       fetchFavorites();
       Alert.alert(
         language === 'vi' ? 'Lỗi' : 'Error',
@@ -123,7 +120,7 @@ export default function FavoritesScreen({ navigation }) {
           language === 'vi' ? 'Không thể thêm sách vào lúc này.' : 'Could not add to cart right now.'
         );
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert(
         language === 'vi' ? 'Lỗi kết nối' : 'Connection Error',
         language === 'vi' ? 'Vui lòng kiểm tra lại mạng.' : 'Please check your connection.'

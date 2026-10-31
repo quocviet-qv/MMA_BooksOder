@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { styles } from '../styles/AdminScreenStyles';
 
@@ -25,13 +25,8 @@ export default function AdminScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchBooks();
-    }, [])
-  );
 
-  const fetchBooks = async () => {
+  const fetchBooks = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/books`);
       if (response.ok) {
@@ -45,7 +40,10 @@ export default function AdminScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+
+  useFocusEffect(useCallback(() => { fetchBooks(); }, [fetchBooks]));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -83,7 +81,7 @@ export default function AdminScreen({ navigation }) {
               } else {
                 Alert.alert('Thất bại', 'Không thể xóa cuốn sách này.');
               }
-            } catch (error) {
+            } catch (_error) {
               Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
             }
           },

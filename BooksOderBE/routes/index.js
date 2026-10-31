@@ -1,21 +1,38 @@
 const express = require('express');
+const { protect, adminOnly, ownAccount } = require('../middlewares/authMiddleware');
+const books = require('../controllers/bookController');
+const cart = require('../controllers/cartController');
+const favorites = require('../controllers/favoriteController');
+const orders = require('../controllers/orderController');
+const auth = require('../controllers/authController');
+const reviews = require('../controllers/reviewController');
 const router = express.Router();
-
-const bookRoutes = require('./bookRoutes');
-const cartRoutes = require('./cartRoutes');
-const favoriteRoutes = require('./favoriteRoutes');
-const orderRoutes = require('./orderRoutes');
-const authRoutes = require('./authRoutes');
-const reviewRoutes = require('./reviewRoutes');
-const { checkout } = require('../controllers/orderController');
-
-// Đăng ký các module routes (Đảm bảo giữ nguyên 100% các URL cũ)
-router.use('/books', bookRoutes);
-router.use('/cart', cartRoutes);
-router.use('/favorites', favoriteRoutes);
-router.use('/orders', orderRoutes);
-router.post('/checkout', checkout);
-router.use('/', authRoutes);
-router.use('/reviews', reviewRoutes);
-
+router.get('/books', books.getBooks);
+router.post('/books', protect, adminOnly, books.addBook);
+router.put('/books/:id', protect, adminOnly, books.updateBook);
+router.delete('/books/:id', protect, adminOnly, books.deleteBook);
+router.post('/register', auth.register);
+router.post('/login', auth.login);
+router.post('/change-password', protect, ownAccount, auth.changePassword);
+router.get('/profile/:userId', protect, ownAccount, auth.getUserProfile);
+router.get('/reviews/:bookId', reviews.getBookReviews);
+router.post('/reviews', protect, ownAccount, reviews.addReview);
+router.use(protect);
+router.get('/cart/:userId', ownAccount, cart.getCart);
+router.post('/cart', ownAccount, cart.addToCart);
+router.put('/cart/:id', cart.updateCartItem);
+router.delete('/cart/:id', cart.removeFromCart);
+router.get('/favorites/:userId', ownAccount, favorites.getFavorites);
+router.post('/favorites', ownAccount, favorites.toggleFavorite);
+router.get('/checkout/summary', orders.getCheckoutSummary);
+router.post('/checkout', ownAccount, orders.checkout);
+router.post('/orders/checkout', ownAccount, orders.checkout);
+router.get('/orders/dashboard/stats', adminOnly, orders.getDashboardStats);
+router.get('/orders', adminOnly, orders.getAllOrders);
+router.get('/orders/detail/:id', orders.getOrderDetail);
+router.put('/orders/:id/status', adminOnly, orders.updateOrderStatus);
+router.put('/orders/:id/payment', adminOnly, orders.updatePayment);
+router.put('/orders/:id/cancel', orders.cancelOrder);
+router.get('/orders/user/:userId', ownAccount, orders.getUserOrders);
+router.get('/orders/:userId', ownAccount, orders.getUserOrders);
 module.exports = router;

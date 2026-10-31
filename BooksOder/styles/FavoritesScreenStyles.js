@@ -1,9 +1,6 @@
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-const { width } = Dimensions.get('window');
-const GRID_GAP = 12;
 const SCREEN_PADDING = 16;
-const CARD_WIDTH = (width - SCREEN_PADDING * 2 - GRID_GAP) / 2;
 
 export const styles = StyleSheet.create({
   container: {
@@ -139,7 +136,7 @@ export const styles = StyleSheet.create({
     marginBottom: 14,
   },
   gridCard: {
-    width: CARD_WIDTH,
+    width: '48.5%',
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     overflow: 'hidden',

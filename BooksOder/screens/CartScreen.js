@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -27,13 +27,8 @@ export default function CartScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchCart();
-    }, [userId])
-  );
 
-  const fetchCart = async () => {
+  const fetchCart = useCallback(async () => {
     try {
       const currentId = userId || 'user123';
       const response = await fetch(`${API_URL}/cart/${currentId}`);
@@ -49,7 +44,10 @@ export default function CartScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [userId, t]);
+
+
+  useFocusEffect(useCallback(() => { fetchCart(); }, [fetchCart]));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -58,6 +56,7 @@ export default function CartScreen({ navigation }) {
   };
 
   const handleUpdateQuantity = async (cartItemId, newQuantity) => {
+    if (newQuantity < 1) return handleRemoveItem(cartItemId);
     try {
       const response = await fetch(`${API_URL}/cart/${cartItemId}`, {
         method: 'PUT',
@@ -76,6 +75,9 @@ export default function CartScreen({ navigation }) {
           );
         }
         refreshCartCount(userId);
+      } else {
+        const data = await response.json();
+        Alert.alert('Không thể đổi số lượng', data.message || 'Vui lòng thử lại');
       }
     } catch (error) {
       console.error('Lỗi cập nhật số lượng:', error);
@@ -97,7 +99,7 @@ export default function CartScreen({ navigation }) {
               setCartItems((prev) => prev.filter((item) => item._id !== cartItemId));
               refreshCartCount(userId);
             }
-          } catch (error) {
+          } catch (_error) {
             Alert.alert('Lỗi', 'Không thể xóa sản phẩm khỏi giỏ hàng.');
           }
         },

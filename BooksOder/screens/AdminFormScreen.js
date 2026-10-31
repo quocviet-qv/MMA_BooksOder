@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL, getAuthHeaders } from '../src/constants/api';
+import { API_URL, getAuthHeaders, apiFetch as fetch } from '../src/constants/api';
 import { styles } from '../styles/AdminFormScreenStyles';
 
 const COMMON_CATEGORIES = [

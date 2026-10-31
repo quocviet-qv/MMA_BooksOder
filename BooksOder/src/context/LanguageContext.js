@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-import translations from '../i18n';
+import { translations } from '../i18n';
 
 const LanguageContext = createContext();
 
@@ -9,22 +9,15 @@ export function LanguageProvider({ children }) {
   const [language, setLanguageState] = useState('vi');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadSavedLanguage();
-  }, []);
 
-  const loadSavedLanguage = async () => {
-    try {
-      const savedLang = await AsyncStorage.getItem('appLanguage');
-      if (savedLang === 'vi' || savedLang === 'en') {
-        setLanguageState(savedLang);
-      }
-    } catch (error) {
-      console.log('Lỗi khi tải ngôn ngữ đã lưu:', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem('appLanguage')
+      .then(saved => { if (active && ['vi', 'en'].includes(saved)) setLanguageState(saved); })
+      .catch(error => console.error(error.message))
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const setLanguage = async (newLang) => {
     if (newLang !== 'vi' && newLang !== 'en') return;

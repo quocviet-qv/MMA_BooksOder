@@ -6,4 +6,5 @@ const cartSchema = new mongoose.Schema({
   quantity: { type: Number, default: 1 }
 }, { timestamps: true });
 
+cartSchema.index({ userId: 1, bookId: 1 }, { unique: true });
 module.exports = mongoose.model('Cart', cartSchema);

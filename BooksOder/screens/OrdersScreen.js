@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/OrdersScreenStyles';
@@ -36,13 +36,8 @@ export default function OrdersScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('all');
   const [cancellingId, setCancellingId] = useState(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadOrders();
-    }, [userId])
-  );
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
       const uid = userId || 'user123';
       const response = await fetch(`${API_URL}/orders/${uid}`);
@@ -59,7 +54,10 @@ export default function OrdersScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [userId, t]);
+
+
+  useFocusEffect(useCallback(() => { loadOrders(); }, [loadOrders]));
 
   const onRefresh = () => {
     setRefreshing(true);

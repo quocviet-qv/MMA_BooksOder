@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL } from '../src/constants/api';
+import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/RegisterScreenStyles';
 
@@ -33,7 +33,7 @@ export default function RegisterScreen({ navigation }) {
       const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
 
       const data = await response.json();

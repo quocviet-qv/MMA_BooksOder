@@ -1,5 +1,6 @@
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,7 +14,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_URL, getCurrentUserId } from '../src/constants/api';
+import { API_URL, getCurrentUserId, apiFetch as fetch } from '../src/constants/api';
 import { useCart } from '../src/context/CartContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/DetailScreenStyles';
@@ -56,18 +57,7 @@ export default function DetailScreen({ route, navigation }) {
   const [commentText, setCommentText] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
-  useEffect(() => {
-    initScreenData();
-  }, [bookId]);
-
-  const initScreenData = async () => {
-    const uid = await getCurrentUserId();
-    setUserId(uid);
-    checkFavoriteStatus(uid);
-    fetchReviews();
-  };
-
-  const checkFavoriteStatus = async (uid) => {
+  const checkFavoriteStatus = useCallback(async (uid) => {
     try {
       const response = await fetch(`${API_URL}/favorites/${uid}`);
       if (response.ok) {
@@ -82,9 +72,8 @@ export default function DetailScreen({ route, navigation }) {
     } finally {
       setLoadingFav(false);
     }
-  };
-
-  const fetchReviews = async () => {
+  }, [bookId]);
+  const fetchReviews = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/reviews/${bookId}`);
       if (res.ok) {
@@ -101,7 +90,15 @@ export default function DetailScreen({ route, navigation }) {
     } finally {
       setLoadingReviews(false);
     }
-  };
+  }, [bookId]);
+
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getCurrentUserId().then(uid => { if (active) { setUserId(uid); checkFavoriteStatus(uid); } });
+    fetchReviews();
+    return () => { active = false; };
+  }, [checkFavoriteStatus, fetchReviews]));
 
   const handleToggleFavorite = async () => {
     const nextFav = !isFav;
@@ -139,7 +136,7 @@ export default function DetailScreen({ route, navigation }) {
       } else {
         Alert.alert('Lỗi', 'Không thể thêm vào giỏ hàng lúc này.');
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Lỗi mạng', 'Không thể kết nối đến máy chủ Backend.');
     } finally {
       setIsAdding(false);
