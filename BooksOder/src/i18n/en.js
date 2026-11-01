@@ -94,6 +94,8 @@ export default {
     reviewsTitle: 'Reviews & Ratings',
     noReviews: 'No reviews yet for this book.',
     writeReview: 'Write your review',
+    updateReview: 'Edit review',
+    reviewEligibility: 'Only customers who purchased and received this book can leave a review.',
     reviewRating: 'Rating:',
     reviewComment: 'Your feedback on this book...',
     submitReview: 'Submit Review',

@@ -190,6 +190,12 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 5,
   },
+  reviewPermissionHint: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#64748B',
+    marginBottom: 14,
+  },
   // Card tổng hợp đánh giá & phân bố sao
   ratingCard: {
     backgroundColor: '#F8F9FA',

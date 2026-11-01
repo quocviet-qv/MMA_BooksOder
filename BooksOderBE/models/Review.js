@@ -7,10 +7,7 @@ const reviewSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  userId: {
-    type: String,
-    required: true
-  },
+  userId: { type: String, required: true },
   username: {
     type: String,
     default: 'Khách hàng'

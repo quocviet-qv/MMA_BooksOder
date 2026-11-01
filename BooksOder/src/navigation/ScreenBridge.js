@@ -16,7 +16,9 @@ export default function ScreenBridge({ screen: Screen, requiresBook = false }) {
     const encoded = Object.fromEntries(Object.entries(values).filter(([key, value]) => key !== 'screen' && value !== undefined).map(([key, value]) => [key, typeof value === 'object' ? JSON.stringify(value) : String(value)]));
     router.push({ pathname: path, params: encoded });
   };
-  if (requiresBook && (!params.book || typeof params.book !== 'object' || !(params.book._id || params.book.id))) {
+  const hasBook = params.book && typeof params.book === 'object' && (params.book._id || params.book.id);
+  const hasBookId = typeof params.bookId === 'string' && params.bookId.length > 0;
+  if (requiresBook && !hasBook && !hasBookId) {
     return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20 }}><Text>Vui lòng chọn một cuốn sách trong cửa hàng.</Text><TouchableOpacity onPress={() => router.replace('/home')}><Text style={{ color: '#B91C1C' }}>Về kho sách</Text></TouchableOpacity></View>;
   }
   const content = <Screen route={{ params }} navigation={{ navigate, goBack: () => router.canGoBack() ? router.back() : router.replace('/'), setOptions: () => {} }} />;

@@ -15,13 +15,18 @@ import {
 } from 'react-native';
 
 import { API_URL, getCurrentUserId, apiFetch as fetch } from '../src/constants/api';
+import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/DetailScreenStyles';
 
 export default function DetailScreen({ route, navigation }) {
-  const { book } = route.params;
-  const bookId = (book.id || book._id).toString();
+  const { book: initialBook, bookId: routeBookId } = route.params || {};
+  const [book, setBook] = useState(initialBook || null);
+  const [bookLoading, setBookLoading] = useState(!initialBook);
+  const [bookError, setBookError] = useState('');
+  const bookId = (initialBook?.id || initialBook?._id || routeBookId || '').toString();
+  const { isLoggedIn } = useAuth();
   const { refreshCartCount } = useCart();
   const { t, language } = useLanguage();
 
@@ -46,16 +51,41 @@ export default function DetailScreen({ route, navigation }) {
 
   // Trạng thái cho Hệ thống Đánh giá & Bình luận
   const [reviews, setReviews] = useState([]);
-  const [totalReviews, setTotalReviews] = useState(book.totalReviews || 0);
-  const [averageRating, setAverageRating] = useState(book.averageRating || 0);
+  const [totalReviews, setTotalReviews] = useState(initialBook?.totalReviews || 0);
+  const [averageRating, setAverageRating] = useState(initialBook?.averageRating || 0);
   const [ratingCounts, setRatingCounts] = useState({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [canReview, setCanReview] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
+  const [reviewPermissionLoading, setReviewPermissionLoading] = useState(true);
+  const [existingReview, setExistingReview] = useState(null);
 
   // Trạng thái cho Modal gửi đánh giá
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRating, setSelectedRating] = useState(5);
   const [commentText, setCommentText] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  const fetchBook = useCallback(async () => {
+    if (initialBook || !bookId) return;
+    setBookLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/books/${bookId}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Không thể tải thông tin sách');
+      setBook(data);
+      setBookError('');
+    } catch (error) {
+      console.error('Lỗi tải thông tin sách:', error);
+      setBookError(error.message || 'Không thể tải thông tin sách');
+    } finally {
+      setBookLoading(false);
+    }
+  }, [bookId, initialBook]);
+
+  useFocusEffect(useCallback(() => {
+    fetchBook();
+  }, [fetchBook]));
 
   const checkFavoriteStatus = useCallback(async (uid) => {
     try {
@@ -76,26 +106,32 @@ export default function DetailScreen({ route, navigation }) {
   const fetchReviews = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/reviews/${bookId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setReviews(Array.isArray(data.reviews) ? data.reviews : []);
-        setTotalReviews(data.totalReviews || 0);
-        setAverageRating(data.averageRating || 0);
-        if (data.ratingCounts) {
-          setRatingCounts(data.ratingCounts);
-        }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+      setReviews(Array.isArray(data.reviews) ? data.reviews : []);
+      setTotalReviews(data.totalReviews || 0);
+      setAverageRating(data.averageRating || 0);
+      if (data.ratingCounts) {
+        setRatingCounts(data.ratingCounts);
       }
+      setCanReview(isLoggedIn && data.canReview === true);
+      setHasReviewed(isLoggedIn && data.hasReviewed === true);
+      setExistingReview(data.review || null);
     } catch (error) {
       console.error('Lỗi tải đánh giá:', error);
+      setCanReview(false);
+      setHasReviewed(false);
+      setExistingReview(null);
     } finally {
       setLoadingReviews(false);
+      setReviewPermissionLoading(false);
     }
-  }, [bookId]);
-
+  }, [bookId, isLoggedIn]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     getCurrentUserId().then(uid => { if (active) { setUserId(uid); checkFavoriteStatus(uid); } });
+    setReviewPermissionLoading(true);
     fetchReviews();
     return () => { active = false; };
   }, [checkFavoriteStatus, fetchReviews]));
@@ -145,18 +181,19 @@ export default function DetailScreen({ route, navigation }) {
 
   // Xử lý gửi đánh giá mới
   const handleSubmitReview = async () => {
+    if (!canReview) {
+      return Alert.alert('Chưa đủ điều kiện', 'Bạn cần mua và nhận sách thành công mới được đánh giá.');
+    }
     if (!commentText.trim()) {
       return Alert.alert('Thiếu nhận xét', 'Vui lòng viết đôi lời nhận xét về cuốn sách này.');
     }
 
     setSubmittingReview(true);
     try {
-      const response = await fetch(`${API_URL}/reviews`, {
+      const response = await fetch(`${API_URL}/books/${bookId}/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bookId,
-          userId,
           rating: selectedRating,
           comment: commentText.trim()
         })
@@ -169,17 +206,7 @@ export default function DetailScreen({ route, navigation }) {
         setCommentText('');
         setSelectedRating(5);
 
-        // Cập nhật lại danh sách đánh giá tại chỗ
-        if (data.review) {
-          setReviews(prev => [data.review, ...prev]);
-        }
-        if (data.averageRating !== undefined) {
-          setAverageRating(data.averageRating);
-        }
-        if (data.totalReviews !== undefined) {
-          setTotalReviews(data.totalReviews);
-        }
-        fetchReviews(); // Đồng bộ lại phân bố sao
+        await fetchReviews();
       } else {
         Alert.alert('Lỗi', data.message || 'Không thể gửi đánh giá.');
       }
@@ -189,6 +216,13 @@ export default function DetailScreen({ route, navigation }) {
     } finally {
       setSubmittingReview(false);
     }
+  };
+
+  const openReviewModal = () => {
+    if (!canReview) return;
+    setSelectedRating(existingReview?.rating || 5);
+    setCommentText(existingReview?.comment || '');
+    setModalVisible(true);
   };
 
   // Hàm vẽ 5 ngôi sao theo điểm số
@@ -208,6 +242,23 @@ export default function DetailScreen({ route, navigation }) {
     }
     return stars;
   };
+
+  if (bookLoading) {
+    return <View style={styles.container}><ActivityIndicator size="large" color="#B91C1C" /></View>;
+  }
+
+  if (!book) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Text style={{ color: '#64748B', textAlign: 'center', marginBottom: 16 }}>
+          {bookError || 'Không tìm thấy thông tin sách.'}
+        </Text>
+        <TouchableOpacity onPress={fetchBook}>
+          <Text style={{ color: '#B91C1C', fontWeight: '700' }}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -243,10 +294,10 @@ export default function DetailScreen({ route, navigation }) {
             </Text>
             <View style={styles.authorRatingDivider} />
             <View style={styles.ratingStarsGroup}>
-              {renderStars(averageRating > 0 ? averageRating : 5, 15)}
+              {renderStars(averageRating, 15)}
             </View>
             <Text style={styles.ratingScoreBadge}>
-              {averageRating > 0 ? averageRating.toFixed(1) : '5.0'}
+              {averageRating > 0 ? averageRating.toFixed(1) : '0.0'}
             </Text>
             <Text style={styles.ratingCountText}>
               ({totalReviews})
@@ -305,23 +356,29 @@ export default function DetailScreen({ route, navigation }) {
           {/* KHỐI ĐÁNH GIÁ & NHẬN XÉT (REVIEWS & RATINGS) */}
           <View style={styles.reviewSectionHeader}>
             <Text style={styles.sectionTitle}>Đánh giá & Nhận xét</Text>
-            <TouchableOpacity
-              style={styles.writeReviewBtn}
-              onPress={() => setModalVisible(true)}
-            >
-              <Ionicons name="create-outline" size={16} color="#B91C1C" />
-              <Text style={styles.writeReviewBtnText}>Viết đánh giá</Text>
-            </TouchableOpacity>
+            {reviewPermissionLoading ? (
+              <ActivityIndicator size="small" color="#B91C1C" />
+            ) : canReview ? (
+              <TouchableOpacity style={styles.writeReviewBtn} onPress={openReviewModal}>
+                <Ionicons name="create-outline" size={16} color="#B91C1C" />
+                <Text style={styles.writeReviewBtnText}>
+                  {hasReviewed ? t('detail.updateReview') : t('detail.writeReview')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
+          {!reviewPermissionLoading && !canReview ? (
+            <Text style={styles.reviewPermissionHint}>{t('detail.reviewEligibility')}</Text>
+          ) : null}
 
           {/* Bảng tổng hợp điểm số & phân bố sao */}
           <View style={styles.ratingCard}>
             <View style={styles.ratingLeftBox}>
               <Text style={styles.ratingBigNumber}>
-                {averageRating > 0 ? averageRating.toFixed(1) : '5.0'}
+                {averageRating > 0 ? averageRating.toFixed(1) : '0.0'}
               </Text>
               <View style={{ flexDirection: 'row', marginVertical: 4 }}>
-                {renderStars(averageRating > 0 ? averageRating : 5, 14)}
+                {renderStars(averageRating, 14)}
               </View>
               <Text style={styles.ratingTotalReviews}>{totalReviews} lượt đánh giá</Text>
             </View>
@@ -329,7 +386,7 @@ export default function DetailScreen({ route, navigation }) {
             <View style={styles.ratingDistributionBox}>
               {[5, 4, 3, 2, 1].map((star) => {
                 const count = ratingCounts[star] || 0;
-                const percent = totalReviews > 0 ? (count / totalReviews) * 100 : (star === 5 ? 100 : 0);
+                const percent = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
                 return (
                   <View key={star} style={styles.distRow}>
                     <Text style={styles.distStarLabel}>{star}★</Text>
@@ -358,7 +415,7 @@ export default function DetailScreen({ route, navigation }) {
               {reviews.map((rev) => {
                 const initialLetter = (rev.username || 'K').charAt(0).toUpperCase();
                 const revDate = rev.createdAt
-                  ? new Date(rev.createdAt).toLocaleDateString('vi-VN')
+                  ? new Date(rev.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN')
                   : 'Gần đây';
 
                 return (

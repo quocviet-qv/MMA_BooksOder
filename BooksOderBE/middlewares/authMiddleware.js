@@ -31,6 +31,26 @@ const protect = async (req, res, next) => {
   }
 };
 
+const optionalProtect = async (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) return next();
+  if (!authorization.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
+  }
+  try {
+    const decoded = jwt.verify(
+      authorization.split(' ')[1],
+      process.env.JWT_SECRET || 'supersecretjwtkey_bookstore_2026'
+    );
+    req.user = await User.findById(decoded.id).select('-password');
+    if (!req.user) return res.status(401).json({ message: 'Người dùng không tồn tại hoặc token hết hạn' });
+    next();
+  } catch (error) {
+    console.error('Lỗi xác thực token:', error.message);
+    return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
+  }
+};
+
 // Middleware kiểm tra quyền Quản trị viên (Admin)
 const adminOnly = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
@@ -47,4 +67,4 @@ const ownAccount = (req, res, next) => {
   if (req.body) req.body.userId = req.user.id;
   next();
 };
-module.exports = { protect, adminOnly, ownAccount };
+module.exports = { protect, optionalProtect, adminOnly, ownAccount };

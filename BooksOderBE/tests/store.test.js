@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Book = require('../models/Book');
 const Order = require('../models/Order');
+const Review = require('../models/Review');
 let database, server, base, admin, user1, user2;
 async function api(path, auth, body, method = body ? 'POST' : 'GET') {
   const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: `Bearer ${auth.token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -22,7 +23,7 @@ before(async () => {
   database = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   await mongoose.connect(database.getUri());
   for (const username of ['admin', 'user1', 'user2']) await User.create({ username, password: await bcrypt.hash('test123', 4), role: username === 'admin' ? 'admin' : 'user' });
-  await Promise.all([Order.init(), require('../models/Cart').init(), require('../models/Favorite').init()]);
+  await Promise.all([Order.init(), Review.init(), require('../models/Cart').init(), require('../models/Favorite').init()]);
   server = require('../app').listen(0, '127.0.0.1');
   await once(server, 'listening');
   base = `http://127.0.0.1:${server.address().port}`;
@@ -141,4 +142,65 @@ test('COD requires collection before completion; historical book snapshots survi
   assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Đã hủy' }, 'PUT')).status, 400);
   assert.equal((await api('/orders/dashboard/stats', admin)).data.totalRevenue, 125000);
   assert.equal((await api('/orders/dashboard/stats', admin)).data.walletBalance, 125000);
+});
+test('only customers with a delivered order can create or update one review per book', async () => {
+  const book = await createBook();
+  const detail = await api(`/books/${book._id}`, null);
+  assert.equal(detail.status, 200);
+  assert.equal(detail.data._id, book._id);
+  assert.equal((await api(`/books/${book._id}/can-review`, null)).status, 401);
+  const eligibility = await api(`/books/${book._id}/can-review`, user1);
+  assert.deepEqual(
+    { canReview: eligibility.data.canReview, hasReviewed: eligibility.data.hasReviewed },
+    { canReview: false, hasReviewed: false }
+  );
+  const publicReviews = await api(`/reviews/${book._id}`, null);
+  assert.equal(publicReviews.status, 200);
+  assert.equal(publicReviews.data.canReview, undefined);
+  const signedInReviews = await api(`/reviews/${book._id}`, user1);
+  assert.equal(signedInReviews.data.canReview, false);
+  assert.equal((await api(`/books/${book._id}/reviews`, user1, { rating: 5, comment: 'Great book' })).status, 403);
+  assert.equal((await api(`/books/${book._id}/reviews`, user2, { userId: user1.userId, rating: 5, comment: 'Spoofed' })).status, 403);
+
+  await Order.create({
+    userId: user1.userId,
+    totalAmount: 125000,
+    paymentStatus: 'paid',
+    status: 'Hoàn thành',
+    address: delivery.address,
+    items: [{ bookId: book._id, quantity: 1, price: book.price }],
+  });
+  await Review.create({
+    bookId: book._id,
+    userId: user2.userId,
+    username: 'user2',
+    rating: 1,
+    comment: 'Legacy unverified review',
+  });
+  const canReview = await api(`/books/${book._id}/can-review`, user1);
+  assert.equal(canReview.data.canReview, true);
+  assert.equal(canReview.data.hasReviewed, false);
+  assert.equal((await api(`/reviews/${book._id}`, user1)).data.canReview, true);
+
+  const created = await api(`/books/${book._id}/reviews`, user1, { rating: 4, comment: '  Good read  ' });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.review.userId, user1.userId);
+  assert.equal(created.data.review.username, 'user1');
+  assert.equal(created.data.review.comment, 'Good read');
+  const updated = await api(`/books/${book._id}/reviews`, user1, { rating: 5, comment: 'Excellent' });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.data.review.rating, 5);
+  assert.equal(await Review.countDocuments({ bookId: book._id, userId: user1.userId }), 1);
+  const savedBook = await Book.findById(book._id);
+  assert.equal(savedBook.averageRating, 5);
+  assert.equal(savedBook.totalReviews, 1);
+  assert.equal((await api(`/books/${book._id}/can-review`, user1)).data.hasReviewed, true);
+  const listedReviews = await api(`/reviews/${book._id}`, null);
+  assert.equal(listedReviews.data.reviews.length, 1);
+  assert.equal(listedReviews.data.reviews[0].comment, 'Excellent');
+  const bookWithRating = (await api('/books', null)).data.find(item => item._id === book._id);
+  assert.equal(bookWithRating.averageRating, 5);
+  assert.equal(bookWithRating.totalReviews, 1);
+  assert.equal((await api(`/books/${book._id}/reviews`, user2, { rating: 3, comment: 'Not purchased' })).status, 403);
+  assert.equal((await api(`/books/${book._id}/reviews`, user1, { rating: 6, comment: 'Invalid rating' })).status, 400);
 });

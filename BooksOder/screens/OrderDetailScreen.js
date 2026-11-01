@@ -259,11 +259,16 @@ export default function OrderDetailScreen({ route, navigation }) {
           const book = item.bookId || {};
           const isLast = index === validItems.length - 1;
           const subtotal = (item.price || 0) * (item.quantity || 1);
-
+          const bookId = typeof item.bookId === 'object'
+            ? item.bookId._id || item.bookId.id
+            : item.bookId;
           return (
-            <View 
+            <TouchableOpacity
               key={item._id || index} 
               style={[styles.itemRow, isLast && styles.itemRowLast]}
+              activeOpacity={0.8}
+              disabled={!bookId}
+              onPress={() => navigation.navigate('Chi tiết', { bookId: String(bookId) })}
             >
               <Image 
                 source={{ uri: book.coverImage || 'https://via.placeholder.com/150' }}
@@ -285,7 +290,7 @@ export default function OrderDetailScreen({ route, navigation }) {
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>

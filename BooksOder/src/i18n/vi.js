@@ -94,6 +94,8 @@ export default {
     reviewsTitle: 'Đánh giá & Bình luận',
     noReviews: 'Chưa có đánh giá nào cho cuốn sách này.',
     writeReview: 'Viết đánh giá của bạn',
+    updateReview: 'Sửa đánh giá',
+    reviewEligibility: 'Chỉ khách hàng đã mua và nhận sách thành công mới có thể đánh giá.',
     reviewRating: 'Chấm điểm:',
     reviewComment: 'Nhận xét về cuốn sách...',
     submitReview: 'Gửi đánh giá',
