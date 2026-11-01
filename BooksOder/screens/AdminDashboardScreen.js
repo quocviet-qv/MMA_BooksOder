@@ -72,6 +72,7 @@ export default function AdminDashboardScreen() {
 
   const s = stats || {
     totalRevenue: 0,
+    walletBalance: 0,
     totalOrders: 0,
     pendingOrders: 0,
     shippingOrders: 0,
@@ -118,6 +119,16 @@ export default function AdminDashboardScreen() {
           <Text style={styles.revenueSubtext}>
             {t('admin.fromOrders', { count: s.completedOrders || 0 })}
           </Text>
+        </View>
+
+        <View style={styles.walletCard}>
+          <View style={styles.walletIconBox}>
+            <Ionicons name="wallet-outline" size={22} color="#059669" />
+          </View>
+          <View style={styles.walletInfo}>
+            <Text style={styles.walletLabel}>{t('admin.walletBalance')}</Text>
+            <Text style={styles.walletValue}>{(s.walletBalance || 0).toLocaleString('vi-VN')} {t('common.currency')}</Text>
+          </View>
         </View>
 
         {/* Lưới chỉ số KPI */}

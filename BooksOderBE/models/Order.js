@@ -26,6 +26,7 @@ const orderSchema = new mongoose.Schema({
     default: 'Chờ xác nhận',
     enum: ['Chờ xác nhận', 'Đang vận chuyển', 'Hoàn thành', 'Đã hủy', 'Đang xử lý', 'Đang giao', 'Đã giao']
   },
+  isRevenueAdded: { type: Boolean, default: false },
   address: { type: String, required: true } // Địa chỉ giao hàng
 }, { timestamps: true });
 

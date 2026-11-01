@@ -159,6 +159,17 @@ function RootNavigator() {
                 headerStyle: { backgroundColor: '#F8F9FA' },
               }}
             />
+            <Stack.Screen
+              name="OrderDetail"
+              component={OrderDetailScreen}
+              options={{
+                headerShown: true,
+                title: t('headers.orderDetail'),
+                headerTintColor: '#B91C1C',
+                headerTitleStyle: { color: '#0F172A', fontWeight: 'bold' },
+                headerStyle: { backgroundColor: '#F8F9FA' },
+              }}
+            />
           </>
         ) : (
           // LUỒNG 3: Đã đăng nhập với tài khoản User bình thường

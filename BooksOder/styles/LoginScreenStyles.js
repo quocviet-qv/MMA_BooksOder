@@ -23,6 +23,15 @@ export const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 16,
   },
+  passwordInputContainer: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  passwordToggle: {
+    position: 'absolute',
+    right: 12,
+    padding: 6,
+  },
   input: {
     backgroundColor: '#FFFFFF',
     padding: 15,

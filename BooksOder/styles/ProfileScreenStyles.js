@@ -187,6 +187,15 @@ export const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 14,
   },
+  passwordInputContainer: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  passwordToggle: {
+    position: 'absolute',
+    right: 10,
+    padding: 6,
+  },
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',

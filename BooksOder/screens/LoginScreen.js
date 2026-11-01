@@ -19,6 +19,7 @@ export default function LoginScreen({ navigation }) {
   const { t, language, toggleLanguage } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -83,14 +84,25 @@ export default function LoginScreen({ navigation }) {
         />
       </View>
       <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder={t('auth.passwordPlaceholder')}
-          placeholderTextColor="#999"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.passwordInputContainer}>
+          <TextInput
+            style={[styles.input, { paddingRight: 52 }]}
+            placeholder={t('auth.passwordPlaceholder')}
+            placeholderTextColor="#999"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.passwordToggle}
+            onPress={() => setShowPassword(visible => !visible)}
+            accessibilityRole="button"
+            accessibilityLabel={t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')}
+            hitSlop={8}
+          >
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.btn} onPress={handleLogin} disabled={loading}>

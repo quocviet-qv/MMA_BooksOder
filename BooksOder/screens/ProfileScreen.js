@@ -32,6 +32,9 @@ export default function ProfileScreen({ navigation }) {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submittingPassword, setSubmittingPassword] = useState(false);
 
   // Tải thống kê đơn hàng của người dùng
@@ -262,38 +265,71 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('profile.oldPassLabel')}</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                placeholder={t('profile.oldPassPlaceholder')}
-                placeholderTextColor="#999"
-                value={oldPassword}
-                onChangeText={setOldPassword}
-              />
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={[styles.input, { paddingRight: 52 }]}
+                  secureTextEntry={!showOldPassword}
+                  placeholder={t('profile.oldPassPlaceholder')}
+                  placeholderTextColor="#999"
+                  value={oldPassword}
+                  onChangeText={setOldPassword}
+                />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowOldPassword(visible => !visible)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(showOldPassword ? 'auth.hidePassword' : 'auth.showPassword')}
+                  hitSlop={8}
+                >
+                  <Ionicons name={showOldPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('profile.newPassLabel')}</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                placeholder={t('profile.newPassPlaceholder')}
-                placeholderTextColor="#999"
-                value={newPassword}
-                onChangeText={setNewPassword}
-              />
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={[styles.input, { paddingRight: 52 }]}
+                  secureTextEntry={!showNewPassword}
+                  placeholder={t('profile.newPassPlaceholder')}
+                  placeholderTextColor="#999"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowNewPassword(visible => !visible)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(showNewPassword ? 'auth.hidePassword' : 'auth.showPassword')}
+                  hitSlop={8}
+                >
+                  <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('profile.confirmNewPassLabel')}</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                placeholder={t('profile.confirmNewPassPlaceholder')}
-                placeholderTextColor="#999"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={[styles.input, { paddingRight: 52 }]}
+                  secureTextEntry={!showConfirmPassword}
+                  placeholder={t('profile.confirmNewPassPlaceholder')}
+                  placeholderTextColor="#999"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowConfirmPassword(visible => !visible)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(showConfirmPassword ? 'auth.hidePassword' : 'auth.showPassword')}
+                  hitSlop={8}
+                >
+                  <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.modalButtonRow}>

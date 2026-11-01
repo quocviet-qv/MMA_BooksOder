@@ -14,7 +14,8 @@ const userSchema = new mongoose.Schema({
     type: String, 
     enum: ['user', 'admin'], 
     default: 'user' // Mặc định ai đăng ký cũng là user bình thường
-  }
+  },
+  walletBalance: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

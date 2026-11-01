@@ -23,6 +23,15 @@ async function accessibleOrder(req, session) {
   if (!order) throw fail(404, 'Không tìm thấy đơn hàng');
   return order;
 }
+async function addRevenueToAdmin(order, session) {
+  const admin = await User.findOneAndUpdate(
+    { role: 'admin' },
+    { $inc: { walletBalance: order.totalAmount } },
+    { returnDocument: 'after', session }
+  );
+  if (!admin) throw fail(500, 'Không tìm thấy tài khoản Admin để cộng doanh thu');
+  order.isRevenueAdded = true;
+}
 exports.getCheckoutSummary = async (req, res) => {
   const items = (await Cart.find({ userId: req.user.id }).populate('bookId')).filter(i => i.bookId);
   res.json({ items, ...totals(items) });
@@ -76,7 +85,15 @@ async function changeStatus(req, status, userCancellation = false) {
     const order = await accessibleOrder(req, session);
     const current = normalize(order.status);
     if (userCancellation && !pending.includes(order.status)) throw fail(400, 'Chỉ có thể hủy đơn đang chờ xác nhận');
-    if (current === status) { result = order; return; }
+    if (current === status) {
+      if (status === 'Hoàn thành' && !order.isRevenueAdded) {
+        if (order.paymentStatus !== 'paid') throw fail(400, 'Cần xác nhận đã thu tiền trước khi hoàn thành đơn');
+        await addRevenueToAdmin(order, session);
+        await order.save({ session });
+      }
+      result = order;
+      return;
+    }
     const allowed = { 'Chờ xác nhận': ['Đang vận chuyển', 'Đã hủy'], 'Đang vận chuyển': ['Hoàn thành', 'Đã hủy'], 'Hoàn thành': [], 'Đã hủy': [] };
     if (!allowed[current]?.includes(status)) throw fail(400, 'Không thể chuyển trạng thái đơn hàng này');
     if (status === 'Hoàn thành' && order.paymentStatus !== 'paid') throw fail(400, 'Cần xác nhận đã thu tiền trước khi hoàn thành đơn');
@@ -84,6 +101,9 @@ async function changeStatus(req, status, userCancellation = false) {
     if (status === 'Đã hủy') {
       for (const item of order.items) if (item.bookId) await Book.updateOne({ _id: item.bookId }, { $inc: { stock: item.quantity } }, { session });
       if (order.paymentStatus === 'paid') order.paymentStatus = 'refund_pending';
+    }
+    if (status === 'Hoàn thành' && !order.isRevenueAdded) {
+      await addRevenueToAdmin(order, session);
     }
     order.status = status;
     await order.save({ session });
@@ -93,7 +113,7 @@ async function changeStatus(req, status, userCancellation = false) {
   return view(result);
 }
 exports.cancelOrder = async (req, res) => res.json({ message: 'Đã hủy đơn hàng', order: await changeStatus(req, 'Đã hủy', true) });
-exports.updateOrderStatus = async (req, res) => res.json({ message: 'Đã cập nhật đơn hàng', order: await changeStatus(req, req.body.status) });
+exports.updateOrderStatus = async (req, res) => res.json({ message: 'Đã cập nhật đơn hàng', order: await changeStatus(req, normalize(req.body.status)) });
 exports.updatePayment = async (req, res) => {
   let result;
   await mongoose.connection.transaction(async session => {
@@ -112,7 +132,11 @@ exports.updatePayment = async (req, res) => {
   res.json({ message: 'Đã cập nhật thanh toán', order: view(result) });
 };
 exports.getDashboardStats = async (_req, res) => {
-  const [orders, books] = await Promise.all([Order.find(), Book.find()]);
+  const [orders, books, admin] = await Promise.all([
+    Order.find(),
+    Book.find(),
+    User.findOne({ role: 'admin' }).select('walletBalance'),
+  ]);
   const completed = orders.filter(o => normalize(o.status) === 'Hoàn thành');
   const paid = orders.filter(o => o.paymentStatus === 'paid');
   const sales = {};
@@ -121,5 +145,5 @@ exports.getDashboardStats = async (_req, res) => {
     sales[id] ||= { id, bookName: i.bookName || 'Sách', coverImage: i.coverImage, price: i.price, totalSold: 0 };
     sales[id].totalSold += i.quantity;
   }
-  res.json({ totalRevenue: completed.filter(o => o.paymentStatus === 'paid').reduce((s, o) => s + o.totalAmount, 0), collectedAmount: paid.reduce((s, o) => s + o.totalAmount, 0), totalOrders: orders.length, pendingCount: orders.filter(o => normalize(o.status) === 'Chờ xác nhận').length, shippingCount: orders.filter(o => normalize(o.status) === 'Đang vận chuyển').length, completedCount: completed.length, cancelledCount: orders.filter(o => normalize(o.status) === 'Đã hủy').length, totalBooks: books.length, totalStock: books.reduce((s, b) => s + b.stock, 0), topSellingBooks: Object.values(sales).sort((a, b) => b.totalSold - a.totalSold).slice(0, 5) });
+  res.json({ totalRevenue: completed.filter(o => o.paymentStatus === 'paid').reduce((s, o) => s + o.totalAmount, 0), walletBalance: admin?.walletBalance || 0, collectedAmount: paid.reduce((s, o) => s + o.totalAmount, 0), totalOrders: orders.length, pendingCount: orders.filter(o => normalize(o.status) === 'Chờ xác nhận').length, shippingCount: orders.filter(o => normalize(o.status) === 'Đang vận chuyển').length, completedCount: completed.length, cancelledCount: orders.filter(o => normalize(o.status) === 'Đã hủy').length, totalBooks: books.length, totalStock: books.reduce((s, b) => s + b.stock, 0), topSellingBooks: Object.values(sales).sort((a, b) => b.totalSold - a.totalSold).slice(0, 5) });
 };

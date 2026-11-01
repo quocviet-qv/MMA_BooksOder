@@ -44,6 +44,7 @@ export default function AdminOrdersScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Tất cả');
   const [searchQuery, setSearchQuery] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   // Modal đổi trạng thái tùy chọn
   const [modalVisible, setModalVisible] = useState(false);
@@ -68,12 +69,26 @@ export default function AdminOrdersScreen({ navigation }) {
     }
   }, []);
 
+  const fetchWalletBalance = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/orders/dashboard/stats`);
+      if (!response.ok) throw new Error('Không thể tải số dư ví Admin');
+      const data = await response.json();
+      setWalletBalance(data.walletBalance || 0);
+    } catch (error) {
+      console.error('Lỗi tải số dư ví Admin:', error);
+    }
+  }, []);
 
-  useFocusEffect(useCallback(() => { fetchOrders(); }, [fetchOrders]));
+  useFocusEffect(useCallback(() => {
+    fetchOrders();
+    fetchWalletBalance();
+  }, [fetchOrders, fetchWalletBalance]));
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchOrders();
+    fetchWalletBalance();
   };
 
   const handleLogout = () => {
@@ -158,6 +173,7 @@ export default function AdminOrdersScreen({ navigation }) {
           prev.map((o) => (o._id === orderId ? { ...o, ...data.order } : o))
         );
         setModalVisible(false);
+        await Promise.all([fetchOrders(), fetchWalletBalance()]);
       } else {
         Alert.alert('Thất bại', data.message || 'Không thể cập nhật trạng thái đơn.');
       }
@@ -448,6 +464,16 @@ export default function AdminOrdersScreen({ navigation }) {
             <Text style={styles.statText}>Đã hủy:</Text>
             <Text style={[styles.statCount, { color: '#DC2626' }]}>{stats.cancelled}</Text>
           </TouchableOpacity>
+
+          <View style={styles.statChip}>
+            <Ionicons name="wallet-outline" size={16} color="#059669" style={{ marginRight: 7 }} />
+            <View>
+              <Text style={styles.statText}>Ví Admin</Text>
+              <Text style={[styles.statCount, { color: '#059669', marginLeft: 0 }]}>
+                {walletBalance.toLocaleString('vi-VN')} đ
+              </Text>
+            </View>
+          </View>
         </ScrollView>
       </View>
 

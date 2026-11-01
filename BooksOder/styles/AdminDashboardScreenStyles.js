@@ -68,6 +68,43 @@ export const styles = StyleSheet.create({
     color: '#FED7AA',
     fontSize: 12,
   },
+  walletCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  walletIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    marginRight: 12,
+  },
+  walletInfo: {
+    flex: 1,
+  },
+  walletLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  walletValue: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#047857',
+    marginTop: 4,
+  },
   // KPI Grid
   kpiGrid: {
     flexDirection: 'row',
