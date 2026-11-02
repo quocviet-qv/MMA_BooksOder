@@ -14,6 +14,7 @@ import { LanguageProvider, useLanguage } from './src/context/LanguageContext';
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AdminFormScreen from './screens/AdminFormScreen';
 import AdminOrdersScreen from './screens/AdminOrdersScreen';
+import AdminProfileScreen from './screens/AdminProfileScreen';
 import AdminScreen from './screens/AdminScreen';
 import CartScreen from './screens/CartScreen';
 import CheckoutScreen from './screens/CheckoutScreen';
@@ -148,6 +149,17 @@ function RootNavigator() {
           // LUỒNG 2: Đã đăng nhập với tài khoản Admin
           <>
             <Stack.Screen name="Admin" component={AdminTabs} />
+            <Stack.Screen
+              name="AdminProfile"
+              component={AdminProfileScreen}
+              options={{
+                headerShown: true,
+                title: 'Hồ sơ Admin',
+                headerTintColor: '#B91C1C',
+                headerTitleStyle: { color: '#0F172A', fontWeight: '800' },
+                headerStyle: { backgroundColor: '#F8F9FA' },
+              }}
+            />
             <Stack.Screen
               name="AdminForm"
               component={AdminFormScreen}

@@ -3,22 +3,21 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_URL, getAuthHeaders, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/AdminDashboardScreenStyles';
 
-export default function AdminDashboardScreen() {
-  const { userName, logout } = useAuth();
+export default function AdminDashboardScreen({ navigation }) {
+  const { userName } = useAuth();
   const { t, language, toggleLanguage } = useLanguage();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -49,18 +48,6 @@ export default function AdminDashboardScreen() {
     fetchStats();
   };
 
-  const handleLogoutPress = () => {
-    Alert.alert(
-      t('common.logout'),
-      t('common.logoutConfirm'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.logout'), style: 'destructive', onPress: () => logout() },
-      ],
-      { cancelable: true }
-    );
-  };
-
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -88,7 +75,14 @@ export default function AdminDashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerSubtitle}>{t('admin.hello')} {userName || 'Admin'}</Text>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center' }}
+            onPress={() => navigation.navigate('AdminProfile')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="person-circle" size={22} color="#B91C1C" style={{ marginRight: 5 }} />
+            <Text style={styles.headerSubtitle}>{t('admin.hello')} {userName || 'Admin'}</Text>
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('admin.dashboardTitle')}</Text>
         </View>
 
@@ -102,9 +96,6 @@ export default function AdminDashboardScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogoutPress}>
-            <Ionicons name="log-out-outline" size={22} color="#DC2626" />
-          </TouchableOpacity>
         </View>
       </View>
 
