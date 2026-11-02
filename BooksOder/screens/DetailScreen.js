@@ -201,18 +201,24 @@ export default function DetailScreen({ route, navigation }) {
 
       const data = await response.json();
       if (response.ok) {
-        Alert.alert('Cảm ơn bạn! 🎉', 'Đánh giá của bạn đã được đăng thành công.');
+        Alert.alert(
+          language === 'vi' ? 'Cảm ơn bạn! 🎉' : 'Thank You! 🎉',
+          language === 'vi' ? 'Đánh giá của bạn đã được đăng thành công.' : 'Your review has been submitted successfully.'
+        );
         setModalVisible(false);
         setCommentText('');
         setSelectedRating(5);
 
         await fetchReviews();
       } else {
-        Alert.alert('Lỗi', data.message || 'Không thể gửi đánh giá.');
+        Alert.alert(language === 'vi' ? 'Lỗi' : 'Error', data.message || (language === 'vi' ? 'Không thể gửi đánh giá.' : 'Could not submit review.'));
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi mạng', 'Không thể kết nối máy chủ để gửi đánh giá.');
+      Alert.alert(
+        language === 'vi' ? 'Lỗi mạng' : 'Network Error',
+        language === 'vi' ? 'Không thể kết nối máy chủ để gửi đánh giá.' : 'Cannot connect to server to submit review.'
+      );
     } finally {
       setSubmittingReview(false);
     }
@@ -251,10 +257,12 @@ export default function DetailScreen({ route, navigation }) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <Text style={{ color: '#64748B', textAlign: 'center', marginBottom: 16 }}>
-          {bookError || 'Không tìm thấy thông tin sách.'}
+          {bookError || (language === 'vi' ? 'Không tìm thấy thông tin sách.' : 'Book not found.')}
         </Text>
         <TouchableOpacity onPress={fetchBook}>
-          <Text style={{ color: '#B91C1C', fontWeight: '700' }}>Thử lại</Text>
+          <Text style={{ color: '#B91C1C', fontWeight: '700' }}>
+            {language === 'vi' ? 'Thử lại' : 'Retry'}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -344,18 +352,24 @@ export default function DetailScreen({ route, navigation }) {
           <View style={styles.divider} />
 
           {/* Giới thiệu nội dung */}
-          <Text style={styles.sectionTitle}>Giới thiệu nội dung</Text>
+          <Text style={styles.sectionTitle}>
+            {language === 'vi' ? 'Giới thiệu nội dung' : 'Book Description'}
+          </Text>
           <Text style={styles.description}>
             {book.description && book.description.trim()
               ? book.description
-              : `Đây là một trong những cuốn sách tuyệt vời nhất thuộc thể loại ${book.category}. Với những triết lý sâu sắc và bài học thực tế, tác phẩm của ${book.author} chắc chắn sẽ mang lại cho bạn những giây phút đọc sách thú vị và bổ ích. Hãy thêm vào giỏ hàng để sở hữu ngay!`}
+              : language === 'vi'
+              ? `Đây là một trong những cuốn sách tuyệt vời nhất thuộc thể loại ${book.category}. Với những triết lý sâu sắc và bài học thực tế, tác phẩm của ${book.author} chắc chắn sẽ mang lại cho bạn những giây phút đọc sách thú vị và bổ ích. Hãy thêm vào giỏ hàng để sở hữu ngay!`
+              : `This is one of the most remarkable books in ${book.category}. With profound insights and practical wisdom, ${book.author}'s work offers a rewarding reading experience.`}
           </Text>
 
           <View style={styles.divider} />
 
           {/* KHỐI ĐÁNH GIÁ & NHẬN XÉT (REVIEWS & RATINGS) */}
           <View style={styles.reviewSectionHeader}>
-            <Text style={styles.sectionTitle}>Đánh giá & Nhận xét</Text>
+            <Text style={styles.sectionTitle}>
+              {language === 'vi' ? 'Đánh giá & Nhận xét' : 'Reviews & Ratings'}
+            </Text>
             {reviewPermissionLoading ? (
               <ActivityIndicator size="small" color="#B91C1C" />
             ) : canReview ? (
@@ -380,7 +394,9 @@ export default function DetailScreen({ route, navigation }) {
               <View style={{ flexDirection: 'row', marginVertical: 4 }}>
                 {renderStars(averageRating, 14)}
               </View>
-              <Text style={styles.ratingTotalReviews}>{totalReviews} lượt đánh giá</Text>
+              <Text style={styles.ratingTotalReviews}>
+                {totalReviews} {language === 'vi' ? 'lượt đánh giá' : 'reviews'}
+              </Text>
             </View>
 
             <View style={styles.ratingDistributionBox}>
@@ -407,7 +423,9 @@ export default function DetailScreen({ route, navigation }) {
             <View style={styles.emptyReviewsBox}>
               <Ionicons name="chatbubble-ellipses-outline" size={36} color="#A89F91" />
               <Text style={styles.emptyReviewsText}>
-                Chưa có nhận xét nào cho cuốn sách này.{'\n'}Hãy là người đầu tiên chia sẻ cảm nhận nhé!
+                {language === 'vi'
+                  ? 'Chưa có nhận xét nào cho cuốn sách này.\nHãy là người đầu tiên chia sẻ cảm nhận nhé!'
+                  : 'No reviews yet for this book.\nBe the first to share your thoughts!'}
               </Text>
             </View>
           ) : (
@@ -482,7 +500,9 @@ export default function DetailScreen({ route, navigation }) {
           <View style={styles.modalContent}>
             {/* Header Modal */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Đánh giá sách</Text>
+              <Text style={styles.modalTitle}>
+                {language === 'vi' ? 'Đánh giá sách' : 'Book Review'}
+              </Text>
               <TouchableOpacity
                 style={styles.closeBtn}
                 onPress={() => setModalVisible(false)}
@@ -500,7 +520,9 @@ export default function DetailScreen({ route, navigation }) {
             </View>
 
             {/* Chọn số sao (1 đến 5 sao tương tác) */}
-            <Text style={styles.starPickerLabel}>Chất lượng cuốn sách:</Text>
+            <Text style={styles.starPickerLabel}>
+              {language === 'vi' ? 'Chất lượng cuốn sách:' : 'Rate this book:'}
+            </Text>
             <View style={styles.starPickerContainer}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <TouchableOpacity
@@ -519,10 +541,16 @@ export default function DetailScreen({ route, navigation }) {
             <Text style={styles.starMoodText}>{STAR_MOODS[selectedRating]}</Text>
 
             {/* Khung nhập nhận xét */}
-            <Text style={styles.commentLabel}>Nhận xét của bạn:</Text>
+            <Text style={styles.commentLabel}>
+              {language === 'vi' ? 'Nhận xét của bạn:' : 'Your review & feedback:'}
+            </Text>
             <TextInput
               style={styles.commentInput}
-              placeholder="Chia sẻ cảm nhận về nội dung, bài học hay chất lượng in ấn cuốn sách này nhé..."
+              placeholder={
+                language === 'vi'
+                  ? 'Chia sẻ cảm nhận về nội dung, bài học hay chất lượng in ấn cuốn sách này nhé...'
+                  : 'Share your thoughts on the content, takeaways, or print quality...'
+              }
               placeholderTextColor="#999"
               multiline
               numberOfLines={4}
@@ -539,7 +567,9 @@ export default function DetailScreen({ route, navigation }) {
               {submittingReview ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
-                <Text style={styles.submitReviewBtnText}>GỬI ĐÁNH GIÁ</Text>
+                <Text style={styles.submitReviewBtnText}>
+                  {language === 'vi' ? 'GỬI ĐÁNH GIÁ' : 'SUBMIT REVIEW'}
+                </Text>
               )}
             </TouchableOpacity>
           </View>

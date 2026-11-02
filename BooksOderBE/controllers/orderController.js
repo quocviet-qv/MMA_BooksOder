@@ -6,10 +6,74 @@ const User = require('../models/User');
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const pending = ['Chờ xác nhận', 'Đang xử lý'];
 const normalize = s => ({ 'Đang xử lý': 'Chờ xác nhận', 'Đang giao': 'Đang vận chuyển', 'Đã giao': 'Hoàn thành' }[s] || s);
-function totals(items) {
+const STORE_VOUCHERS = [
+  {
+    code: 'GIAM10',
+    name: 'Giảm 10% đơn hàng',
+    description: 'Giảm 10% tối đa 50.000đ cho mọi đơn',
+    type: 'percent',
+    value: 10,
+    minOrder: 0,
+    maxDiscount: 50000,
+  },
+  {
+    code: 'FREESHIP',
+    name: 'Miễn phí vận chuyển',
+    description: 'Hỗ trợ 25.000đ phí giao hàng',
+    type: 'shipping',
+    value: 25000,
+    minOrder: 0,
+  },
+  {
+    code: 'BOOKWORM20',
+    name: 'Mọt sách - Giảm 20K',
+    description: 'Giảm 20.000đ cho đơn từ 100.000đ',
+    type: 'fixed',
+    value: 20000,
+    minOrder: 100000,
+  },
+  {
+    code: 'VIP50',
+    name: 'Khách VIP - Giảm 50K',
+    description: 'Giảm 50.000đ cho đơn từ 250.000đ',
+    type: 'fixed',
+    value: 50000,
+    minOrder: 250000,
+  },
+];
+
+function calculateDiscount(subtotal, shippingFee, voucherCode) {
+  if (!voucherCode) return { discountAmount: 0, appliedVoucher: null };
+  const cleanCode = String(voucherCode).trim().toUpperCase();
+  const v = STORE_VOUCHERS.find(item => item.code.toUpperCase() === cleanCode);
+  if (!v) return { discountAmount: 0, appliedVoucher: null };
+  if (subtotal < (v.minOrder || 0)) return { discountAmount: 0, appliedVoucher: null };
+
+  let discount = 0;
+  if (v.type === 'percent') {
+    discount = Math.round(subtotal * (v.value / 100));
+    if (v.maxDiscount) discount = Math.min(discount, v.maxDiscount);
+  } else if (v.type === 'shipping') {
+    discount = Math.min(shippingFee, v.value);
+  } else if (v.type === 'fixed') {
+    discount = v.value;
+  }
+  discount = Math.min(discount, subtotal + shippingFee);
+  return { discountAmount: discount, appliedVoucher: v };
+}
+
+function totals(items, voucherCode = '') {
   const subtotal = items.reduce((sum, item) => sum + item.bookId.price * item.quantity, 0);
   const shippingFee = subtotal >= 300000 || !items.length ? 0 : 25000;
-  return { subtotal, shippingFee, totalAmount: subtotal + shippingFee };
+  const { discountAmount, appliedVoucher } = calculateDiscount(subtotal, shippingFee, voucherCode);
+  const totalAmount = Math.max(0, subtotal + shippingFee - discountAmount);
+  return {
+    subtotal,
+    shippingFee,
+    voucherCode: appliedVoucher ? appliedVoucher.code : '',
+    discountAmount,
+    totalAmount,
+  };
 }
 function view(order) {
   const data = order.toObject ? order.toObject() : order;
@@ -34,10 +98,15 @@ async function addRevenueToAdmin(order, session) {
 }
 exports.getCheckoutSummary = async (req, res) => {
   const items = (await Cart.find({ userId: req.user.id }).populate('bookId')).filter(i => i.bookId);
-  res.json({ items, ...totals(items) });
+  const voucherCode = req.query.voucherCode || '';
+  res.json({
+    items,
+    ...totals(items, voucherCode),
+    availableVouchers: STORE_VOUCHERS,
+  });
 };
 exports.checkout = async (req, res) => {
-  const { recipientName, phone, address, note = '', paymentMethod = 'COD', checkoutKey } = req.body;
+  const { recipientName, phone, address, note = '', paymentMethod = 'COD', checkoutKey, voucherCode = '' } = req.body;
   if (typeof recipientName !== 'string' || recipientName.trim().length < 2 || recipientName.length > 100 || typeof address !== 'string' || address.trim().length < 10 || address.length > 500 || typeof phone !== 'string' || !/^(0\d{9}|\+84\d{9})$/.test(phone.replace(/[\s.-]/g, ''))) throw fail(400, 'Nhập họ tên, số điện thoại Việt Nam và địa chỉ nhận hàng đầy đủ');
   if (!['COD', 'BANK_TRANSFER'].includes(paymentMethod) || typeof note !== 'string' || note.length > 1000 || typeof checkoutKey !== 'string' || checkoutKey.length < 12 || checkoutKey.length > 100) throw fail(400, 'Thông tin thanh toán không hợp lệ');
   let result;
@@ -53,9 +122,17 @@ exports.checkout = async (req, res) => {
         const reserved = await Book.updateOne({ _id: item.bookId._id, stock: { $gte: item.quantity } }, { $inc: { stock: -item.quantity } }, { session });
         if (!reserved.modifiedCount) throw fail(409, `Sách "${item.bookId.bookName}" không đủ tồn kho`);
       }
+      const orderTotals = totals(cart, voucherCode);
       [result] = await Order.create([{
-        userId: req.user.id, checkoutKey, recipientName: recipientName.trim(), phone: phone.replace(/[\s.-]/g, ''), address: address.trim(), note: note.trim(), paymentMethod,
-        paymentStatus: paymentMethod === 'COD' ? 'unpaid' : 'pending', ...totals(cart),
+        userId: req.user.id,
+        checkoutKey,
+        recipientName: recipientName.trim(),
+        phone: phone.replace(/[\s.-]/g, ''),
+        address: address.trim(),
+        note: note.trim(),
+        paymentMethod,
+        paymentStatus: paymentMethod === 'COD' ? 'unpaid' : 'pending',
+        ...orderTotals,
         items: cart.map(i => ({ bookId: i.bookId._id, quantity: i.quantity, price: i.bookId.price, bookName: i.bookId.bookName, author: i.bookId.author, coverImage: i.bookId.coverImage })),
       }], { session });
       await Cart.deleteMany({ _id: { $in: cart.map(i => i._id) } }, { session });
@@ -133,17 +210,73 @@ exports.updatePayment = async (req, res) => {
 };
 exports.getDashboardStats = async (_req, res) => {
   const [orders, books, admin] = await Promise.all([
-    Order.find(),
+    Order.find().populate('items.bookId'),
     Book.find(),
     User.findOne({ role: 'admin' }).select('walletBalance'),
   ]);
+
+  const bookMap = new Map(books.map(b => [String(b._id), b]));
   const completed = orders.filter(o => normalize(o.status) === 'Hoàn thành');
   const paid = orders.filter(o => o.paymentStatus === 'paid');
+
+  // Ưu tiên đơn hoàn thành, nếu chưa có đơn hoàn thành thì lấy các đơn chưa bị hủy
+  const validOrders = completed.length > 0 ? completed : orders.filter(o => normalize(o.status) !== 'Đã hủy');
+
   const sales = {};
-  for (const order of completed) for (const i of order.items) {
-    const id = String(i.bookId || i._id);
-    sales[id] ||= { id, bookName: i.bookName || 'Sách', coverImage: i.coverImage, price: i.price, totalSold: 0 };
-    sales[id].totalSold += i.quantity;
+  for (const order of validOrders) {
+    for (const i of (order.items || [])) {
+      const bId = String(i.bookId?._id || i.bookId || i._id);
+      const b = bookMap.get(bId) || (i.bookId && typeof i.bookId === 'object' ? i.bookId : null);
+      const title = b?.bookName || i.bookName || 'Sách';
+      const price = i.price || b?.price || 0;
+      const qty = Number(i.quantity) || 1;
+
+      if (!sales[bId]) {
+        sales[bId] = {
+          _id: bId,
+          id: bId,
+          title,
+          bookName: title,
+          coverImage: b?.coverImage || i.coverImage || '',
+          price,
+          soldCount: 0,
+          totalSold: 0,
+          revenue: 0,
+        };
+      }
+      sales[bId].soldCount += qty;
+      sales[bId].totalSold += qty;
+      sales[bId].revenue += price * qty;
+    }
   }
-  res.json({ totalRevenue: completed.filter(o => o.paymentStatus === 'paid').reduce((s, o) => s + o.totalAmount, 0), walletBalance: admin?.walletBalance || 0, collectedAmount: paid.reduce((s, o) => s + o.totalAmount, 0), totalOrders: orders.length, pendingCount: orders.filter(o => normalize(o.status) === 'Chờ xác nhận').length, shippingCount: orders.filter(o => normalize(o.status) === 'Đang vận chuyển').length, completedCount: completed.length, cancelledCount: orders.filter(o => normalize(o.status) === 'Đã hủy').length, totalBooks: books.length, totalStock: books.reduce((s, b) => s + b.stock, 0), topSellingBooks: Object.values(sales).sort((a, b) => b.totalSold - a.totalSold).slice(0, 5) });
+
+  const topSellingBooks = Object.values(sales)
+    .sort((a, b) => b.soldCount - a.soldCount || b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const pendingCount = orders.filter(o => normalize(o.status) === 'Chờ xác nhận').length;
+  const shippingCount = orders.filter(o => normalize(o.status) === 'Đang vận chuyển').length;
+  const completedCount = completed.length;
+  const cancelledCount = orders.filter(o => normalize(o.status) === 'Đã hủy').length;
+
+  res.json({
+    totalRevenue: completed.filter(o => o.paymentStatus === 'paid').reduce((s, o) => s + o.totalAmount, 0),
+    walletBalance: admin?.walletBalance || 0,
+    collectedAmount: paid.reduce((s, o) => s + o.totalAmount, 0),
+    totalOrders: orders.length,
+    pendingCount,
+    pendingOrders: pendingCount,
+    shippingCount,
+    shippingOrders: shippingCount,
+    completedCount,
+    completedOrders: completedCount,
+    cancelledCount,
+    cancelledOrders: cancelledCount,
+    totalBooks: books.length,
+    totalStock: books.reduce((s, b) => s + (b.stock || 0), 0),
+    topSellingBooks,
+  });
 };
+
+exports.STORE_VOUCHERS = STORE_VOUCHERS;
+exports.calculateDiscount = calculateDiscount;

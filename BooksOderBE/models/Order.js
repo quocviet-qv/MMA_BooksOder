@@ -8,6 +8,8 @@ const orderSchema = new mongoose.Schema({
   note: { type: String, default: '' },
   subtotal: { type: Number, min: 0 },
   shippingFee: { type: Number, min: 0, default: 0 },
+  voucherCode: { type: String, default: '' },
+  discountAmount: { type: Number, min: 0, default: 0 },
   paymentMethod: { type: String, enum: ['COD', 'BANK_TRANSFER'], default: 'COD' },
   paymentStatus: { type: String, enum: ['unpaid', 'pending', 'paid', 'refund_pending', 'refunded'], default: 'unpaid' },
   paidAt: Date,

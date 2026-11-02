@@ -20,7 +20,7 @@ import { styles } from '../styles/OrdersScreenStyles';
 
 export default function OrdersScreen({ navigation }) {
   const { userId } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const filterTabs = [
     { id: 'all', label: t('home.allCategory') },
@@ -112,12 +112,12 @@ export default function OrdersScreen({ navigation }) {
   // Xử lý Hủy đơn hàng
   const handleCancelOrder = (order) => {
     Alert.alert(
-      'Hủy đơn hàng',
-      'Bạn có chắc chắn muốn hủy đơn hàng này không?',
+      t('orders.cancelOrder'),
+      t('orders.cancelConfirm'),
       [
-        { text: 'Không', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Hủy đơn',
+          text: t('common.confirm'),
           style: 'destructive',
           onPress: async () => {
             setCancellingId(order._id);
@@ -128,14 +128,14 @@ export default function OrdersScreen({ navigation }) {
               });
               const data = await res.json();
               if (res.ok) {
-                Alert.alert('Thành công', 'Đơn hàng của bạn đã được hủy.');
+                Alert.alert(t('common.success'), language === 'vi' ? 'Đơn hàng của bạn đã được hủy.' : 'Your order has been cancelled.');
                 loadOrders();
               } else {
-                Alert.alert('Không thể hủy', data.message || 'Lỗi khi hủy đơn hàng');
+                Alert.alert(t('common.error'), data.message || (language === 'vi' ? 'Lỗi khi hủy đơn hàng' : 'Failed to cancel order'));
               }
             } catch (error) {
               console.error(error);
-              Alert.alert('Lỗi mạng', 'Không thể gửi yêu cầu hủy đơn lúc này.');
+              Alert.alert(t('common.error'), t('common.networkError'));
             } finally {
               setCancellingId(null);
             }
@@ -175,7 +175,9 @@ export default function OrdersScreen({ navigation }) {
         {/* Header thẻ: Mã đơn & Trạng thái */}
         <View style={styles.orderHeader}>
           <View style={styles.orderCodeGroup}>
-            <Text style={styles.orderIdText}>Đơn hàng #{orderCode}</Text>
+            <Text style={styles.orderIdText}>
+              {language === 'vi' ? `Đơn hàng #${orderCode}` : `Order #${orderCode}`}
+            </Text>
             {dateStr ? <Text style={styles.orderDateText}>{dateStr}</Text> : null}
           </View>
           <View style={statusConfig.badgeStyle}>
@@ -195,15 +197,17 @@ export default function OrdersScreen({ navigation }) {
                 />
                 <View style={styles.bookInfo}>
                   <Text style={styles.bookName} numberOfLines={1}>
-                    {book.bookName || 'Tên sách không xác định'}
+                    {book.bookName || (language === 'vi' ? 'Tên sách không xác định' : 'Unknown Book')}
                   </Text>
                   <Text style={styles.bookAuthor} numberOfLines={1}>
-                    Tác giả: {book.author || 'Đang cập nhật'}
+                    {language === 'vi' ? 'Tác giả:' : 'Author:'} {book.author || (language === 'vi' ? 'Đang cập nhật' : 'Unknown')}
                   </Text>
                   <View style={styles.bookMetaRow}>
-                    <Text style={styles.bookQuantity}>Số lượng: x{orderItem.quantity}</Text>
+                    <Text style={styles.bookQuantity}>
+                      {language === 'vi' ? 'Số lượng:' : 'Qty:'} x{orderItem.quantity}
+                    </Text>
                     <Text style={styles.bookPrice}>
-                      {(orderItem.price || 0).toLocaleString('vi-VN')} đ
+                      {(orderItem.price || 0).toLocaleString('vi-VN')} {t('common.currency')}
                     </Text>
                   </View>
                 </View>
@@ -212,7 +216,9 @@ export default function OrdersScreen({ navigation }) {
           })}
           {validItems.length > 2 && (
             <Text style={styles.moreItemsText}>
-              + thêm {validItems.length - 2} sản phẩm khác...
+              {language === 'vi'
+                ? `+ thêm ${validItems.length - 2} sản phẩm khác...`
+                : `+ ${validItems.length - 2} more items...`}
             </Text>
           )}
         </View>

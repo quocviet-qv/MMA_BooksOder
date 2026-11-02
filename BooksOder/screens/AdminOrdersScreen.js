@@ -464,16 +464,6 @@ export default function AdminOrdersScreen({ navigation }) {
             <Text style={styles.statText}>Đã hủy:</Text>
             <Text style={[styles.statCount, { color: '#DC2626' }]}>{stats.cancelled}</Text>
           </TouchableOpacity>
-
-          <View style={styles.statChip}>
-            <Ionicons name="wallet-outline" size={16} color="#059669" style={{ marginRight: 7 }} />
-            <View>
-              <Text style={styles.statText}>Ví Admin</Text>
-              <Text style={[styles.statCount, { color: '#059669', marginLeft: 0 }]}>
-                {walletBalance.toLocaleString('vi-VN')} đ
-              </Text>
-            </View>
-          </View>
         </ScrollView>
       </View>
 

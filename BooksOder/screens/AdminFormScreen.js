@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 
 import { API_URL, getAuthHeaders, apiFetch as fetch } from '../src/constants/api';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/AdminFormScreenStyles';
 
 const COMMON_CATEGORIES = [
@@ -26,8 +28,10 @@ const COMMON_CATEGORIES = [
 ];
 
 export default function AdminFormScreen({ route, navigation }) {
+  const { t, language } = useLanguage();
   const book = route.params?.book;
   const isEdit = !!book;
+  const isEn = language === 'en';
 
   const [formData, setFormData] = useState({
     bookName: book?.bookName || '',
@@ -50,6 +54,73 @@ export default function AdminFormScreen({ route, navigation }) {
     handleChange('category', cat);
   };
 
+  // Chọn ảnh từ thư viện thiết bị và chuyển sang Base64
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        return Alert.alert(
+          'Quyền truy cập bị từ chối',
+          'Vui lòng cấp quyền truy cập thư viện ảnh để chọn ảnh bìa sách.'
+        );
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          const mime = asset.mimeType || 'image/jpeg';
+          handleChange('coverImage', `data:${mime};base64,${asset.base64}`);
+        } else if (asset.uri) {
+          handleChange('coverImage', asset.uri);
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi chọn ảnh:', err);
+      Alert.alert('Lỗi', 'Không thể mở thư viện ảnh: ' + err.message);
+    }
+  };
+
+  // Chụp ảnh trực tiếp từ máy ảnh và chuyển sang Base64
+  const handleTakePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        return Alert.alert(
+          'Quyền truy cập bị từ chối',
+          'Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh bìa sách.'
+        );
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          const mime = asset.mimeType || 'image/jpeg';
+          handleChange('coverImage', `data:${mime};base64,${asset.base64}`);
+        } else if (asset.uri) {
+          handleChange('coverImage', asset.uri);
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi chụp ảnh:', err);
+      Alert.alert('Lỗi', 'Không thể mở máy ảnh: ' + err.message);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.bookName.trim()) {
       return Alert.alert('Thiếu thông tin', 'Vui lòng nhập Tên sách!');
@@ -59,6 +130,9 @@ export default function AdminFormScreen({ route, navigation }) {
     }
     if (!formData.category.trim()) {
       return Alert.alert('Thiếu thông tin', 'Vui lòng chọn hoặc nhập Thể loại sách!');
+    }
+    if (!formData.coverImage.trim()) {
+      return Alert.alert('Thiếu ảnh bìa', 'Vui lòng chọn hoặc chụp ảnh bìa cho cuốn sách!');
     }
 
     setLoading(true);
@@ -116,16 +190,16 @@ export default function AdminFormScreen({ route, navigation }) {
           <View style={styles.heroLeft}>
             <View style={styles.heroBadge}>
               <Text style={styles.heroBadgeText}>
-                {isEdit ? '⚡ CẬP NHẬT (PUT)' : '✨ TẠO MỚI (POST)'}
+                {isEdit ? (isEn ? 'UPDATE' : 'CẬP NHẬT') : (isEn ? 'CREATE NEW' : 'TẠO MỚI')}
               </Text>
             </View>
             <Text style={styles.heroTitle}>
-              {isEdit ? 'Chỉnh sửa thông tin sách' : 'Thêm sách vào kho'}
+              {isEdit ? (isEn ? 'Edit Book Details' : 'Chỉnh sửa thông tin sách') : (isEn ? 'Add Book to Store' : 'Thêm sách vào kho')}
             </Text>
             <Text style={[styles.heroSubtitle, isEdit && styles.heroSubtitleEdit]}>
               {isEdit
-                ? `Mã sách: #${(book._id || book.id || '').toString().slice(-6).toUpperCase()}`
-                : 'Điền thông tin chi tiết để xuất bản sách lên cửa hàng'}
+                ? `${isEn ? 'Book ID' : 'Mã sách'}: #${(book._id || book.id || '').toString().slice(-6).toUpperCase()}`
+                : (isEn ? 'Fill details below to publish book to store' : 'Điền thông tin chi tiết để xuất bản sách lên cửa hàng')}
             </Text>
           </View>
 
@@ -150,7 +224,7 @@ export default function AdminFormScreen({ route, navigation }) {
               <View style={styles.previewPlaceholder}>
                 <Ionicons name="image-outline" size={40} color="#94A3B8" />
                 <Text style={styles.previewPlaceholderText}>
-                  Xem trước ảnh bìa sách
+                  {isEn ? 'Book cover preview' : 'Xem trước ảnh bìa sách'}
                 </Text>
               </View>
             )}
@@ -161,13 +235,13 @@ export default function AdminFormScreen({ route, navigation }) {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="book-outline" size={20} color="#B91C1C" />
-            <Text style={styles.sectionTitle}>Thông tin cơ bản</Text>
+            <Text style={styles.sectionTitle}>{isEn ? 'Basic Information' : 'Thông tin cơ bản'}</Text>
           </View>
 
           {/* Tên sách */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
-              Tên cuốn sách <Text style={styles.requiredStar}>*</Text>
+              {isEn ? 'Book Title' : 'Tên cuốn sách'} <Text style={styles.requiredStar}>*</Text>
             </Text>
             <View
               style={[
@@ -183,7 +257,7 @@ export default function AdminFormScreen({ route, navigation }) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập tên sách đầy đủ..."
+                placeholder={isEn ? 'Enter full book title...' : 'Nhập tên sách đầy đủ...'}
                 placeholderTextColor="#94A3B8"
                 value={formData.bookName}
                 onChangeText={(text) => handleChange('bookName', text)}
@@ -195,7 +269,7 @@ export default function AdminFormScreen({ route, navigation }) {
 
           {/* Tác giả */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tác giả / Dịch giả</Text>
+            <Text style={styles.label}>{isEn ? 'Author / Translator' : 'Tác giả / Dịch giả'}</Text>
             <View
               style={[
                 styles.inputWrapper,
@@ -210,7 +284,7 @@ export default function AdminFormScreen({ route, navigation }) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Ví dụ: Dale Carnegie, Nguyễn Nhật Ánh..."
+                placeholder={isEn ? 'e.g. Dale Carnegie, J.K. Rowling...' : 'Ví dụ: Dale Carnegie, Nguyễn Nhật Ánh...'}
                 placeholderTextColor="#94A3B8"
                 value={formData.author}
                 onChangeText={(text) => handleChange('author', text)}
@@ -223,7 +297,7 @@ export default function AdminFormScreen({ route, navigation }) {
           {/* Thể loại */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
-              Thể loại sách <Text style={styles.requiredStar}>*</Text>
+              {isEn ? 'Book Category' : 'Thể loại sách'} <Text style={styles.requiredStar}>*</Text>
             </Text>
             <View
               style={[
@@ -239,7 +313,7 @@ export default function AdminFormScreen({ route, navigation }) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Nhập hoặc chọn thể loại bên dưới..."
+                placeholder={isEn ? 'Enter or select category below...' : 'Nhập hoặc chọn thể loại bên dưới...'}
                 placeholderTextColor="#94A3B8"
                 value={formData.category}
                 onChangeText={(text) => handleChange('category', text)}
@@ -278,14 +352,14 @@ export default function AdminFormScreen({ route, navigation }) {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="cash-outline" size={20} color="#B91C1C" />
-            <Text style={styles.sectionTitle}>Giá bán & Số lượng</Text>
+            <Text style={styles.sectionTitle}>{isEn ? 'Price & Inventory' : 'Giá bán & Số lượng'}</Text>
           </View>
 
           <View style={styles.rowGroup}>
             {/* Giá bán */}
             <View style={[styles.inputGroup, styles.halfInput]}>
               <Text style={styles.label}>
-                Giá bán (VNĐ) <Text style={styles.requiredStar}>*</Text>
+                {isEn ? 'Price (VND)' : 'Giá bán (VNĐ)'} <Text style={styles.requiredStar}>*</Text>
               </Text>
               <View
                 style={[
@@ -301,7 +375,7 @@ export default function AdminFormScreen({ route, navigation }) {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Ví dụ: 125000"
+                  placeholder={isEn ? 'e.g. 125000' : 'Ví dụ: 125000'}
                   placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   value={formData.price}
@@ -315,7 +389,7 @@ export default function AdminFormScreen({ route, navigation }) {
             {/* Tồn kho */}
             <View style={[styles.inputGroup, styles.halfInput]}>
               <Text style={styles.label}>
-                Số lượng tồn kho <Text style={styles.requiredStar}>*</Text>
+                {isEn ? 'Stock Quantity' : 'Số lượng tồn kho'} <Text style={styles.requiredStar}>*</Text>
               </Text>
               <View
                 style={[
@@ -331,7 +405,7 @@ export default function AdminFormScreen({ route, navigation }) {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Ví dụ: 50"
+                  placeholder={isEn ? 'e.g. 50' : 'Ví dụ: 50'}
                   placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   value={formData.stock}
@@ -347,13 +421,61 @@ export default function AdminFormScreen({ route, navigation }) {
         {/* 5. SECTION 3: HÌNH ẢNH & MÔ TẢ NỘI DUNG */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="document-text-outline" size={20} color="#B91C1C" />
-            <Text style={styles.sectionTitle}>Hình ảnh & Nội dung giới thiệu</Text>
+            <Ionicons name="image-outline" size={20} color="#B91C1C" />
+            <Text style={styles.sectionTitle}>{isEn ? 'Cover Image (Base64) & Summary' : 'Ảnh bìa sách (Base64) & Giới thiệu'}</Text>
           </View>
 
-          {/* Link ảnh bìa */}
+          {/* Chọn ảnh từ thiết bị / Camera */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Link ảnh bìa sách (URL trực tiếp)</Text>
+            <Text style={styles.label}>
+              {isEn ? 'Book Cover' : 'Ảnh bìa sách'} <Text style={styles.requiredStar}>*</Text>
+            </Text>
+
+            {/* Trạng thái ảnh hiện tại */}
+            {formData.coverImage ? (
+              <View style={styles.base64StatusBadge}>
+                <View style={styles.base64StatusLeft}>
+                  <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                  <Text style={styles.base64StatusText}>
+                    {formData.coverImage.startsWith('data:image/')
+                      ? `${isEn ? 'Base64 Loaded' : 'Đã nạp ảnh Base64'} (~${Math.round(formData.coverImage.length * 0.75 / 1024)} KB)`
+                      : (isEn ? 'Using image link' : 'Đang dùng liên kết ảnh')}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.clearImageBtn}
+                  onPress={() => handleChange('coverImage', '')}
+                >
+                  <Text style={styles.clearImageBtnText}>{isEn ? 'Remove' : 'Xóa ảnh'}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* Các nút tải ảnh: Thư viện & Camera */}
+            <View style={styles.imageActionsRow}>
+              <TouchableOpacity
+                style={styles.pickImageBtn}
+                activeOpacity={0.7}
+                onPress={handlePickImage}
+              >
+                <Ionicons name="images-outline" size={20} color="#1D4ED8" />
+                <Text style={styles.pickImageBtnText}>{isEn ? 'Pick from Gallery' : 'Chọn ảnh từ máy'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cameraBtn}
+                activeOpacity={0.7}
+                onPress={handleTakePhoto}
+              >
+                <Ionicons name="camera-outline" size={18} color="#334155" />
+                <Text style={styles.cameraBtnText}>{isEn ? 'Take Photo' : 'Chụp ảnh'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Hoặc dán chuỗi Base64 thủ công */}
+            <Text style={[styles.label, { fontSize: 12, color: '#64748B', marginTop: 4 }]}>
+              {isEn ? 'Or enter Base64 string / URL:' : 'Hoặc nhập / dán chuỗi Base64:'}
+            </Text>
             <View
               style={[
                 styles.inputWrapper,
@@ -361,14 +483,14 @@ export default function AdminFormScreen({ route, navigation }) {
               ]}
             >
               <Ionicons
-                name="link-outline"
+                name="code-slash-outline"
                 size={18}
                 color={activeInput === 'coverImage' ? '#B91C1C' : '#94A3B8'}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
-                placeholder="https://images.unsplash.com/..."
+                placeholder={isEn ? 'data:image/jpeg;base64,... or image URL' : 'data:image/jpeg;base64,... hoặc URL ảnh'}
                 placeholderTextColor="#94A3B8"
                 autoCapitalize="none"
                 value={formData.coverImage}
@@ -386,7 +508,7 @@ export default function AdminFormScreen({ route, navigation }) {
 
           {/* Mô tả sách */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tóm tắt & Giới thiệu nội dung</Text>
+            <Text style={styles.label}>{isEn ? 'Synopsis & Description' : 'Tóm tắt & Giới thiệu nội dung'}</Text>
             <View
               style={[
                 styles.inputWrapper,
@@ -402,7 +524,7 @@ export default function AdminFormScreen({ route, navigation }) {
               />
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="Nhập tóm tắt cuốn sách, các chương hoặc thông điệp chính gửi tới người đọc..."
+                placeholder={isEn ? 'Enter book description, chapters or key highlights...' : 'Nhập tóm tắt cuốn sách, các chương hoặc thông điệp chính gửi tới người đọc...'}
                 placeholderTextColor="#94A3B8"
                 multiline
                 numberOfLines={4}
@@ -433,7 +555,9 @@ export default function AdminFormScreen({ route, navigation }) {
                   color="#FFFFFF"
                 />
                 <Text style={styles.submitBtnText}>
-                  {isEdit ? 'LƯU THAY ĐỔI (PUT)' : 'XUẤT BẢN SÁCH (POST)'}
+                  {isEdit
+                    ? (isEn ? 'SAVE CHANGES' : 'LƯU THAY ĐỔI')
+                    : (isEn ? 'PUBLISH BOOK' : 'XUẤT BẢN SÁCH')}
                 </Text>
               </>
             )}
@@ -445,7 +569,7 @@ export default function AdminFormScreen({ route, navigation }) {
             onPress={() => navigation.goBack()}
             disabled={loading}
           >
-            <Text style={styles.cancelBtnText}>Quay lại danh sách</Text>
+            <Text style={styles.cancelBtnText}>{isEn ? 'Back to List' : 'Quay lại danh sách'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
