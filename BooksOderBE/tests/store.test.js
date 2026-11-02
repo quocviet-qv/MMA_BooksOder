@@ -14,6 +14,7 @@ async function api(path, auth, body, method = body ? 'POST' : 'GET') {
   return { status: response.status, data: await response.json() };
 }
 const bookData = { bookName: 'Test book', author: 'Test author', category: 'Công nghệ', price: 100000, stock: 4, coverImage: 'https://example.com/cover.jpg', description: 'A test book' };
+const cancellation = { reasonCode: 'changed_mind', reasonDetail: 'Đổi kế hoạch mua sách' };
 const delivery = { recipientName: 'Test Customer', phone: '0901234567', address: '123 Test Street, Ho Chi Minh City', paymentMethod: 'COD' };
 let sequence = 0;
 async function checkout(user, extras = {}) { return api('/checkout', user, { ...delivery, checkoutKey: `integration-key-${++sequence}`, ...extras }); }
@@ -92,9 +93,9 @@ test('concurrent buyers cannot oversell the last book; losing checkout rolls bac
   const winner = results[0].status === 201 ? user1 : user2;
   const loser = results[0].status === 201 ? user2 : user1;
   const order = results.find(r => r.status === 201).data.order;
-  assert.equal((await api(`/orders/${order._id}/cancel`, winner, {}, 'PUT')).status, 200);
+  assert.equal((await api(`/orders/${order._id}/cancel`, winner, cancellation, 'PUT')).status, 200);
   assert.equal((await Book.findById(b._id)).stock, 1);
-  assert.equal((await api(`/orders/${order._id}/cancel`, winner, {}, 'PUT')).status, 400);
+  assert.equal((await api(`/orders/${order._id}/cancel`, winner, cancellation, 'PUT')).status, 400);
   const loserCart = (await api(`/cart/${loser.userId}`, loser)).data;
   assert.equal(loserCart.length, 1);
   await api(`/cart/${loserCart[0]._id}`, loser, null, 'DELETE');
@@ -109,7 +110,7 @@ test('bank transfer requires admin confirmation; cancellation refunds once; term
   assert.equal((await api(`/orders/${order._id}/payment`, user1, { paymentStatus: 'paid' }, 'PUT')).status, 403);
   assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT')).data.order.paymentStatus, 'paid');
   assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT')).status, 400);
-  assert.equal((await api(`/orders/${order._id}/cancel`, user1, {}, 'PUT')).data.order.paymentStatus, 'refund_pending');
+  assert.equal((await api(`/orders/${order._id}/cancel`, user1, cancellation, 'PUT')).data.order.paymentStatus, 'refund_pending');
   assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'refunded' }, 'PUT')).data.order.paymentStatus, 'refunded');
   assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Đang vận chuyển' }, 'PUT')).status, 400);
   assert.equal((await Book.findById(b._id)).stock, 4);
@@ -120,7 +121,7 @@ test('COD requires collection before completion; historical book snapshots survi
   const order = (await checkout(user1)).data.order;
   assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Đang vận chuyển' }, 'PUT')).status, 200);
   assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Hoàn thành' }, 'PUT')).status, 400);
-  assert.equal((await api(`/orders/${order._id}/cancel`, user1, {}, 'PUT')).status, 400);
+  assert.equal((await api(`/orders/${order._id}/cancel`, user1, cancellation, 'PUT')).status, 400);
   await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT');
   const completed = await api(`/orders/${order._id}/status`, admin, { status: 'Đã giao' }, 'PUT');
   assert.equal(completed.status, 200);
@@ -203,4 +204,76 @@ test('only customers with a delivered order can create or update one review per 
   assert.equal(bookWithRating.totalReviews, 1);
   assert.equal((await api(`/books/${book._id}/reviews`, user2, { rating: 3, comment: 'Not purchased' })).status, 403);
   assert.equal((await api(`/books/${book._id}/reviews`, user1, { rating: 6, comment: 'Invalid rating' })).status, 400);
+});
+
+test('cancellation requires a valid reason, preserves stock on failure, and saves the customer explanation', async () => {
+  const book = await createBook();
+  await api('/cart', user1, { bookId: book._id, quantity: 1 });
+  const order = (await checkout(user1)).data.order;
+  for (const body of [
+    {}, { reasonCode: 'not_a_reason' }, { reasonCode: '__proto__' },
+    { reasonCode: 123 }, { reasonCode: 'other' },
+    { reasonCode: 'other', reasonDetail: '    ' },
+    { reasonCode: 'other', reasonDetail: 'abcd' },
+    { reasonCode: 'changed_mind', reasonDetail: {} },
+    { reasonCode: 'other', reasonDetail: 'a'.repeat(501) },
+  ]) {
+    assert.equal((await api(`/orders/${order._id}/cancel`, user1, body, 'PUT')).status, 400);
+  }
+  assert.equal((await api(`/orders/${order._id}/cancel`, null, cancellation, 'PUT')).status, 401);
+  assert.equal((await api(`/orders/${order._id}/cancel`, user2, cancellation, 'PUT')).status, 404);
+  assert.equal((await api(`/orders/${order._id}/cancel`, admin, cancellation, 'PUT')).status, 403);
+  assert.equal((await Book.findById(book._id)).stock, 3);
+  assert.equal((await Order.findById(order._id)).status, 'Chờ xác nhận');
+  const response = await api(`/orders/${order._id}/cancel`, user1, {
+    reasonCode: 'other', reasonDetail: '  Tôi muốn gộp với đơn hàng khác.  ',
+    cancellationReason: 'forged reason', cancelledBy: 'admin', cancelledAt: '2000-01-01',
+  }, 'PUT');
+  assert.equal(response.status, 200);
+  assert.equal(response.data.message, 'Đơn hàng đã được hủy thành công');
+  assert.equal(response.data.order.status, 'Đã hủy');
+  assert.equal(response.data.order.cancelledBy, 'customer');
+  assert.equal(response.data.order.cancellationReasonCode, 'other');
+  assert.equal(response.data.order.cancellationReason, 'Lý do khác');
+  assert.equal(response.data.order.cancellationDetails, 'Tôi muốn gộp với đơn hàng khác.');
+  assert.ok(new Date(response.data.order.cancelledAt) >= new Date(order.createdAt));
+  assert.equal((await Book.findById(book._id)).stock, 4);
+  for (const [path, account] of [[`/orders/detail/${order._id}`, user1], ['/orders', admin], [`/orders/${user1.userId}`, user1]]) {
+    const result = (await api(path, account)).data;
+    const saved = Array.isArray(result) ? result.find(row => row._id === order._id) : result;
+    assert.equal(saved.cancellationDetails, 'Tôi muốn gộp với đơn hàng khác.');
+    assert.equal(saved.cancelledBy, 'customer');
+  }
+});
+
+test('two simultaneous cancellations save one reason and restore stock once', async () => {
+  const book = await createBook();
+  await api('/cart', user1, { bookId: book._id, quantity: 1 });
+  const order = (await checkout(user1)).data.order;
+  const requests = await Promise.all([
+    api(`/orders/${order._id}/cancel`, user1, { reasonCode: 'change_address' }, 'PUT'),
+    api(`/orders/${order._id}/cancel`, user1, { reasonCode: 'change_items' }, 'PUT'),
+  ]);
+  assert.deepEqual(requests.map(result => result.status).sort(), [200, 400]);
+  const success = requests.find(result => result.status === 200).data.order;
+  const saved = await Order.findById(order._id);
+  assert.equal(saved.cancellationReasonCode, success.cancellationReasonCode);
+  assert.equal(saved.cancelledAt.toISOString(), success.cancelledAt);
+  assert.equal((await Book.findById(book._id)).stock, 4);
+});
+
+test('admin cancellation remains supported and cannot overwrite a customer cancellation', async () => {
+  const book = await createBook();
+  await api('/cart', user1, { bookId: book._id, quantity: 1 });
+  const order = (await checkout(user1)).data.order;
+  const result = await api(`/orders/${order._id}/status`, admin, { status: 'Đã hủy' }, 'PUT');
+  assert.equal(result.status, 200);
+  assert.equal(result.data.order.cancelledBy, 'admin');
+  assert.ok(result.data.order.cancelledAt);
+  assert.equal((await Book.findById(book._id)).stock, 4);
+  const previous = await Order.findOne({ cancelledBy: 'customer' });
+  const unchanged = await api(`/orders/${previous.id}/status`, admin, { status: 'Đã hủy' }, 'PUT');
+  assert.equal(unchanged.data.order.cancelledBy, 'customer');
+  assert.equal(unchanged.data.order.cancellationReasonCode, previous.cancellationReasonCode);
+  assert.equal(unchanged.data.order.cancelledAt, previous.cancelledAt.toISOString());
 });

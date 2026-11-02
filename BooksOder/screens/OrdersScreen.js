@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 
+import OrderCancellationModal from '../src/components/OrderCancellationModal';
+import CancellationNotice from '../src/components/CancellationNotice';
 import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -34,7 +36,7 @@ export default function OrdersScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
-  const [cancellingId, setCancellingId] = useState(null);
+  const [cancellationOrder, setCancellationOrder] = useState(null);
 
 
   const loadOrders = useCallback(async () => {
@@ -109,41 +111,7 @@ export default function OrdersScreen({ navigation }) {
     }
   };
 
-  // Xử lý Hủy đơn hàng
-  const handleCancelOrder = (order) => {
-    Alert.alert(
-      t('orders.cancelOrder'),
-      t('orders.cancelConfirm'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.confirm'),
-          style: 'destructive',
-          onPress: async () => {
-            setCancellingId(order._id);
-            try {
-              const res = await fetch(`${API_URL}/orders/${order._id}/cancel`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' }
-              });
-              const data = await res.json();
-              if (res.ok) {
-                Alert.alert(t('common.success'), language === 'vi' ? 'Đơn hàng của bạn đã được hủy.' : 'Your order has been cancelled.');
-                loadOrders();
-              } else {
-                Alert.alert(t('common.error'), data.message || (language === 'vi' ? 'Lỗi khi hủy đơn hàng' : 'Failed to cancel order'));
-              }
-            } catch (error) {
-              console.error(error);
-              Alert.alert(t('common.error'), t('common.networkError'));
-            } finally {
-              setCancellingId(null);
-            }
-          }
-        }
-      ]
-    );
-  };
+  const handleCancelOrder = (order) => setCancellationOrder(order);
 
   // Lọc đơn hàng theo Tab được chọn
   const filteredOrders = orders.filter(order => {
@@ -185,6 +153,7 @@ export default function OrdersScreen({ navigation }) {
           </View>
         </View>
 
+        <CancellationNotice order={item} />
         {/* Danh sách sách tóm tắt (tối đa 2 sản phẩm hiển thị trên card) */}
         <View style={styles.itemsList}>
           {validItems.slice(0, 2).map((orderItem, idx) => {
@@ -236,10 +205,10 @@ export default function OrdersScreen({ navigation }) {
             {isCancelable && (
               <TouchableOpacity
                 style={styles.cancelBtn}
-                disabled={cancellingId === item._id}
-                onPress={() => handleCancelOrder(item)}
+                disabled={!!cancellationOrder}
+                onPress={(event) => { event.stopPropagation(); handleCancelOrder(item); }}
               >
-                {cancellingId === item._id ? (
+                {cancellationOrder?._id === item._id ? (
                   <ActivityIndicator size="small" color="#D32F2F" />
                 ) : (
                   <Text style={styles.cancelBtnText}>{t('orders.cancelOrder')}</Text>
@@ -327,6 +296,7 @@ export default function OrdersScreen({ navigation }) {
           }
         />
       )}
+      {cancellationOrder && <OrderCancellationModal order={cancellationOrder} onClose={() => setCancellationOrder(null)} onCancelled={updated => setOrders(previous => previous.map(item => item._id === updated._id ? updated : item))} />}
     </View>
   );
 }

@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import PaymentPanel from '../src/components/PaymentPanel';
+import CancellationNotice from '../src/components/CancellationNotice';
 import { useAuth } from '../src/context/AuthContext';
 import { styles } from '../styles/AdminOrdersScreenStyles';
 
@@ -251,6 +252,7 @@ export default function AdminOrdersScreen({ navigation }) {
 
     return (
       <View style={styles.orderCard}>
+        <CancellationNotice order={item} />
         <PaymentPanel order={item} onUpdate={updated => setOrders(previous => previous.map(o => o._id === updated._id ? { ...o, ...updated } : o))} />
         <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { orderId: item._id })}><Text style={{ color: '#B91C1C', fontWeight: '700', marginBottom: 12 }}>Xem chi tiết đơn hàng →</Text></TouchableOpacity>
         {/* Header thẻ: Mã đơn & Trạng thái */}

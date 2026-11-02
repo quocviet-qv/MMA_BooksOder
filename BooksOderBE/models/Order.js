@@ -13,6 +13,11 @@ const orderSchema = new mongoose.Schema({
   paymentMethod: { type: String, enum: ['COD', 'BANK_TRANSFER'], default: 'COD' },
   paymentStatus: { type: String, enum: ['unpaid', 'pending', 'paid', 'refund_pending', 'refunded'], default: 'unpaid' },
   paidAt: Date,
+  cancellationReasonCode: { type: String, default: '' },
+  cancellationReason: { type: String, default: '' },
+  cancellationDetails: { type: String, maxlength: 500, default: '' },
+  cancelledAt: Date,
+  cancelledBy: { type: String, enum: ['customer', 'admin'] },
   // Danh sách các sách đã mua trong đơn này
   items: [{
     bookId: { type: mongoose.Schema.Types.ObjectId, ref: 'Book' },

@@ -3,7 +3,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   ScrollView,
   Text,
@@ -13,6 +12,9 @@ import {
 
 import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import PaymentPanel from '../src/components/PaymentPanel';
+import CancellationNotice from '../src/components/CancellationNotice';
+import OrderCancellationModal from '../src/components/OrderCancellationModal';
+import { useAuth } from '../src/context/AuthContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/OrderDetailScreenStyles';
 
@@ -20,7 +22,8 @@ export default function OrderDetailScreen({ route, navigation }) {
   const { orderId, order: initialOrder } = route.params || {};
   const [order, setOrder] = useState(initialOrder || null);
   const [loading, setLoading] = useState(!initialOrder);
-  const [cancelling, setCancelling] = useState(false);
+  const [showCancellation, setShowCancellation] = useState(false);
+  const { userRole } = useAuth();
   const { t, language } = useLanguage();
 
   const fetchOrderDetail = useCallback(async () => {
@@ -52,51 +55,7 @@ export default function OrderDetailScreen({ route, navigation }) {
     return status || 'Chờ xác nhận';
   };
 
-  const handleCancelOrder = () => {
-    Alert.alert(
-      language === 'vi' ? 'Xác nhận hủy đơn' : 'Cancel Order',
-      language === 'vi'
-        ? 'Bạn có chắc chắn muốn hủy đơn hàng này không? Thao tác này không thể hoàn tác.'
-        : 'Are you sure you want to cancel this order? This action cannot be undone.',
-      [
-        { text: language === 'vi' ? 'Quay lại' : 'Back', style: 'cancel' },
-        {
-          text: language === 'vi' ? 'Xác nhận hủy' : 'Yes, cancel',
-          style: 'destructive',
-          onPress: async () => {
-            setCancelling(true);
-            try {
-              const res = await fetch(`${API_URL}/orders/${order._id}/cancel`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-              });
-              const data = await res.json();
-              if (res.ok) {
-                Alert.alert(
-                  language === 'vi' ? 'Thành công' : 'Success',
-                  language === 'vi' ? 'Đơn hàng đã được hủy thành công.' : 'Order cancelled successfully.'
-                );
-                setOrder(data.order || { ...order, status: 'Đã hủy' });
-              } else {
-                Alert.alert(
-                  language === 'vi' ? 'Không thể hủy' : 'Error',
-                  data.message || (language === 'vi' ? 'Lỗi khi hủy đơn hàng' : 'Failed to cancel order')
-                );
-              }
-            } catch (error) {
-              console.error(error);
-              Alert.alert(
-                language === 'vi' ? 'Lỗi' : 'Error',
-                language === 'vi' ? 'Không thể kết nối đến máy chủ.' : 'Cannot connect to server.'
-              );
-            } finally {
-              setCancelling(false);
-            }
-          },
-        },
-      ]
-    );
-  };
+  const handleCancelOrder = () => setShowCancellation(true);
 
   if (loading) {
     return (
@@ -127,7 +86,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   const currentStatus = normalizeStatus(order.status);
   const isCancelled = currentStatus === 'Đã hủy';
-  const isCancelable = currentStatus === 'Chờ xác nhận';
+  const isCancelable = userRole === 'user' && currentStatus === 'Chờ xác nhận';
 
   const orderCode = order._id ? order._id.slice(-6).toUpperCase() : 'N/A';
   const dateStr = order.createdAt
@@ -272,6 +231,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
       </View>
 
+      <CancellationNotice order={order} />
       <PaymentPanel order={order} onUpdate={setOrder} />
 
       {/* CARD 2: ĐỊA CHỈ NHẬN HÀNG */}
@@ -418,10 +378,10 @@ export default function OrderDetailScreen({ route, navigation }) {
       {isCancelable && (
         <TouchableOpacity
           style={styles.cancelOrderBtn}
-          disabled={cancelling}
+          disabled={showCancellation}
           onPress={handleCancelOrder}
         >
-          {cancelling ? (
+          {showCancellation ? (
             <ActivityIndicator color="#D32F2F" />
           ) : (
             <>
@@ -433,6 +393,7 @@ export default function OrderDetailScreen({ route, navigation }) {
           )}
         </TouchableOpacity>
       )}
+      {showCancellation && <OrderCancellationModal order={order} onClose={() => setShowCancellation(false)} onCancelled={setOrder} />}
     </ScrollView>
   );
 }
