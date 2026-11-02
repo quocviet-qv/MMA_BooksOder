@@ -3,7 +3,7 @@ const Review = require('../models/Review');
 const Book = require('../models/Book');
 const Order = require('../models/Order');
 const fail = (status, message) => Object.assign(new Error(message), { status });
-const deliveredStatuses = ['Hoàn thành', 'Đã giao'];
+const deliveredStatuses = ['Completed', 'Delivered', 'Hoàn thành', 'Đã giao'];
 
 // @desc    Lấy danh sách đánh giá của một cuốn sách kèm phân bố sao
 // @route   GET /reviews/:bookId

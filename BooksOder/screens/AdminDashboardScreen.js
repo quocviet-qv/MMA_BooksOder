@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   RefreshControl,
   ScrollView,
   Text,
@@ -26,9 +28,51 @@ export default function AdminDashboardScreen({ navigation }) {
   const fetchStats = useCallback(async () => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${API_URL}/orders/dashboard/stats`, { headers });
+      const [res, booksRes] = await Promise.all([
+        fetch(`${API_URL}/orders/dashboard/stats`, { headers }),
+        fetch(`${API_URL}/books`),
+      ]);
+
       if (res.ok) {
         const data = await res.json();
+        let bookList = [];
+        if (booksRes.ok) {
+          try {
+            const list = await booksRes.json();
+            bookList = Array.isArray(list) ? list : [];
+          } catch (_) {}
+        }
+        const bookMap = new Map(bookList.map(b => [String(b._id || b.id), b]));
+
+        if (Array.isArray(data.topSellingBooks)) {
+          data.topSellingBooks = data.topSellingBooks.map(item => {
+            const bId = String(item.id || item._id || '');
+            const bookInfo = bookMap.get(bId);
+            const resolvedTitle = (item.title && item.title !== 'Sách')
+              ? item.title
+              : (item.bookName && item.bookName !== 'Sách')
+                ? item.bookName
+                : (bookInfo?.bookName || 'Sách');
+            const resolvedPrice = item.price || bookInfo?.price || 0;
+            const soldCount = item.soldCount ?? item.totalSold ?? 0;
+            const revenue = item.revenue || (resolvedPrice * soldCount);
+            const coverImage = item.coverImage || bookInfo?.coverImage || '';
+
+            return {
+              ...item,
+              _id: bId,
+              id: bId,
+              title: resolvedTitle,
+              bookName: resolvedTitle,
+              price: resolvedPrice,
+              soldCount,
+              totalSold: soldCount,
+              revenue,
+              coverImage,
+            };
+          });
+        }
+
         setStats(data);
       } else {
         console.error('Không thể lấy dữ liệu thống kê');
@@ -57,7 +101,13 @@ export default function AdminDashboardScreen({ navigation }) {
     );
   }
 
-  const s = stats || {
+  const s = stats ? {
+    ...stats,
+    pendingOrders: stats.pendingOrders ?? stats.pendingCount ?? 0,
+    shippingOrders: stats.shippingOrders ?? stats.shippingCount ?? 0,
+    completedOrders: stats.completedOrders ?? stats.completedCount ?? 0,
+    cancelledOrders: stats.cancelledOrders ?? stats.cancelledCount ?? 0,
+  } : {
     totalRevenue: 0,
     walletBalance: 0,
     totalOrders: 0,
@@ -89,6 +139,14 @@ export default function AdminDashboardScreen({ navigation }) {
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
             style={[styles.logoutBtn, { marginRight: 8, paddingHorizontal: 10 }]}
+            onPress={() => navigation.navigate('Notification')}
+            accessibilityRole="button"
+            accessibilityLabel={language === 'vi' ? 'Thông báo' : 'Notifications'}
+          >
+            <Ionicons name="notifications-outline" size={20} color="#B91C1C" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.logoutBtn, { marginRight: 8, paddingHorizontal: 10 }]}
             onPress={toggleLanguage}
           >
             <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#B91C1C' }}>
@@ -110,16 +168,6 @@ export default function AdminDashboardScreen({ navigation }) {
           <Text style={styles.revenueSubtext}>
             {t('admin.fromOrders', { count: s.completedOrders || 0 })}
           </Text>
-        </View>
-
-        <View style={styles.walletCard}>
-          <View style={styles.walletIconBox}>
-            <Ionicons name="wallet-outline" size={22} color="#059669" />
-          </View>
-          <View style={styles.walletInfo}>
-            <Text style={styles.walletLabel}>{t('admin.walletBalance')}</Text>
-            <Text style={styles.walletValue}>{(s.walletBalance || 0).toLocaleString('vi-VN')} {t('common.currency')}</Text>
-          </View>
         </View>
 
         {/* Lưới chỉ số KPI */}
@@ -233,7 +281,7 @@ export default function AdminDashboardScreen({ navigation }) {
 
               return (
                 <View
-                  key={book._id || index}
+                  key={book._id || book.id || index}
                   style={[
                     styles.rankingItem,
                     index === s.topSellingBooks.length - 1 && { borderBottomWidth: 0 },
@@ -242,16 +290,23 @@ export default function AdminDashboardScreen({ navigation }) {
                   <View style={[styles.rankingBadge, { backgroundColor: badge.bg }]}>
                     <Text style={[styles.rankingText, { color: badge.text }]}>{index + 1}</Text>
                   </View>
+                  {book.coverImage ? (
+                    <Image
+                      source={{ uri: book.coverImage }}
+                      style={styles.rankingCover}
+                      resizeMode="cover"
+                    />
+                  ) : null}
                   <View style={styles.rankingInfo}>
                     <Text style={styles.rankingTitle} numberOfLines={1}>
-                      {book.title}
+                      {book.title || book.bookName || 'Sách'}
                     </Text>
                     <Text style={styles.rankingSold}>
-                      {t('admin.soldCount', { count: book.soldCount })}
+                      {t('admin.soldCount', { count: book.soldCount ?? book.totalSold ?? 0 })}
                     </Text>
                   </View>
                   <Text style={styles.rankingRevenue}>
-                    {(book.revenue || 0).toLocaleString('vi-VN')} {t('common.currency')}
+                    {(book.revenue || (book.price && (book.soldCount || book.totalSold) ? book.price * (book.soldCount || book.totalSold) : 0)).toLocaleString('vi-VN')} {t('common.currency')}
                   </Text>
                 </View>
               );

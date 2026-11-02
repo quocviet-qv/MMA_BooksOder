@@ -27,10 +27,54 @@ import ProfileScreen from './screens/ProfileScreen';
 
 // Import các màn hình Xác thực
 import LoginScreen from './screens/LoginScreen';
+import NotificationScreen from './screens/NotificationScreen';
 import RegisterScreen from './screens/RegisterScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const OrdersStack = createNativeStackNavigator();
+
+function UserOrdersStack() {
+  const { t } = useLanguage();
+
+  return (
+    <OrdersStack.Navigator screenOptions={{ headerShown: false }}>
+      <OrdersStack.Screen name="OrdersList" component={OrdersScreen} />
+      <OrdersStack.Screen
+        name="OrderDetail"
+        component={OrderDetailScreen}
+        options={{
+          headerShown: true,
+          title: t('headers.orderDetail'),
+          headerTintColor: '#B91C1C',
+          headerTitleStyle: { color: '#0F172A', fontWeight: 'bold' },
+          headerStyle: { backgroundColor: '#F8F9FA' },
+        }}
+      />
+    </OrdersStack.Navigator>
+  );
+}
+
+function AdminOrdersStack() {
+  const { t } = useLanguage();
+
+  return (
+    <OrdersStack.Navigator screenOptions={{ headerShown: false }}>
+      <OrdersStack.Screen name="AdminOrdersList" component={AdminOrdersScreen} />
+      <OrdersStack.Screen
+        name="OrderDetail"
+        component={OrderDetailScreen}
+        options={{
+          headerShown: true,
+          title: t('headers.orderDetail'),
+          headerTintColor: '#B91C1C',
+          headerTitleStyle: { color: '#0F172A', fontWeight: 'bold' },
+          headerStyle: { backgroundColor: '#F8F9FA' },
+        }}
+      />
+    </OrdersStack.Navigator>
+  );
+}
 
 // 1. Cụm Tab cho User bình thường (kèm Badge giỏ hàng nhảy số realtime và Tab Hồ sơ)
 function MainTabs() {
@@ -71,7 +115,7 @@ function MainTabs() {
           tabBarBadgeStyle: { backgroundColor: '#B91C1C', color: '#FFF', fontSize: 11 },
         }}
       />
-      <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: t('tabs.orders') }} />
+      <Tab.Screen name="Orders" component={UserOrdersStack} options={{ title: t('tabs.orders') }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: t('tabs.profile') }} />
     </Tab.Navigator>
   );
@@ -92,6 +136,8 @@ function AdminTabs() {
             iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'AdminOrdersTab') {
             iconName = focused ? 'receipt' : 'receipt-outline';
+          } else if (route.name === 'AdminProfile') {
+            iconName = focused ? 'person' : 'person-outline';
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -108,8 +154,13 @@ function AdminTabs() {
       <Tab.Screen name="AdminBooks" component={AdminScreen} options={{ title: t('tabs.adminBooks') }} />
       <Tab.Screen
         name="AdminOrdersTab"
-        component={AdminOrdersScreen}
+        component={AdminOrdersStack}
         options={{ title: t('tabs.adminOrders') }}
+      />
+      <Tab.Screen
+        name="AdminProfile"
+        component={AdminProfileScreen}
+        options={{ title: t('tabs.profile') }}
       />
     </Tab.Navigator>
   );
@@ -150,15 +201,9 @@ function RootNavigator() {
           <>
             <Stack.Screen name="Admin" component={AdminTabs} />
             <Stack.Screen
-              name="AdminProfile"
-              component={AdminProfileScreen}
-              options={{
-                headerShown: true,
-                title: 'Hồ sơ Admin',
-                headerTintColor: '#B91C1C',
-                headerTitleStyle: { color: '#0F172A', fontWeight: '800' },
-                headerStyle: { backgroundColor: '#F8F9FA' },
-              }}
+              name="Notification"
+              component={NotificationScreen}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="AdminForm"
@@ -171,22 +216,16 @@ function RootNavigator() {
                 headerStyle: { backgroundColor: '#F8F9FA' },
               }}
             />
-            <Stack.Screen
-              name="OrderDetail"
-              component={OrderDetailScreen}
-              options={{
-                headerShown: true,
-                title: t('headers.orderDetail'),
-                headerTintColor: '#B91C1C',
-                headerTitleStyle: { color: '#0F172A', fontWeight: 'bold' },
-                headerStyle: { backgroundColor: '#F8F9FA' },
-              }}
-            />
           </>
         ) : (
           // LUỒNG 3: Đã đăng nhập với tài khoản User bình thường
           <>
             <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen
+              name="Notification"
+              component={NotificationScreen}
+              options={{ headerShown: false }}
+            />
             <Stack.Screen
               name="Chi tiết"
               component={DetailScreen}
@@ -196,17 +235,6 @@ function RootNavigator() {
               name="Checkout"
               component={CheckoutScreen}
               options={{ headerShown: true, title: t('headers.checkout') }}
-            />
-            <Stack.Screen
-              name="OrderDetail"
-              component={OrderDetailScreen}
-              options={{
-                headerShown: true,
-                title: t('headers.orderDetail'),
-                headerTintColor: '#B91C1C',
-                headerTitleStyle: { color: '#0F172A', fontWeight: 'bold' },
-                headerStyle: { backgroundColor: '#F8F9FA' },
-              }}
             />
           </>
         )}

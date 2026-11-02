@@ -297,8 +297,8 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: 10,
+    marginBottom: 16,
   },
   dot: {
     width: 8,
@@ -316,7 +316,8 @@ export const styles = StyleSheet.create({
 
   /* CATEGORIES */
   categorySection: {
-    marginBottom: 16,
+    paddingTop: 4,
+    marginBottom: 14,
   },
   categoryHeader: {
     flexDirection: 'row',
@@ -380,7 +381,43 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
+  },
+  sortHeaderLeft: {
+    flex: 1,
+    marginRight: 10,
+    justifyContent: 'center',
+  },
+  sortSubtitleText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  sortPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  sortPillBtnActive: {
+    borderColor: '#B91C1C',
+    backgroundColor: '#FFF1F2',
+  },
+  sortPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    maxWidth: 120,
   },
   bookCountBadge: {
     backgroundColor: '#F1F5F9',
@@ -408,6 +445,132 @@ export const styles = StyleSheet.create({
   activeSortBtn: {
     backgroundColor: '#0F172A',
     borderColor: '#0F172A',
+  },
+
+  /* DROPDOWN FILTER SECTION */
+  dropdownSection: {
+    paddingHorizontal: SCREEN_PADDING,
+    marginBottom: 12,
+  },
+  dropdownRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  dropdownCol: {
+    flex: 1,
+  },
+  dropdownLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  dropdownBtnActive: {
+    borderColor: '#B91C1C',
+    backgroundColor: '#FFF1F2',
+  },
+  dropdownBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 6,
+    gap: 8,
+  },
+  dropdownBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
+  },
+
+  /* MODAL DROPDOWN STYLES */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 14,
+    paddingBottom: 32,
+    paddingHorizontal: 20,
+    maxHeight: '75%',
+  },
+  modalDragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  modalOptionItemActive: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#B91C1C',
+  },
+  modalOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  modalOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  modalOptionTextActive: {
+    color: '#B91C1C',
+    fontWeight: '700',
   },
   sortText: {
     fontSize: 12,

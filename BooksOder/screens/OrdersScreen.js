@@ -20,12 +20,13 @@ import { styles } from '../styles/OrdersScreenStyles';
 
 export default function OrdersScreen({ navigation }) {
   const { userId } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const filterTabs = [
     { id: 'all', label: t('home.allCategory') },
     { id: 'Chờ xác nhận', label: t('orders.statusPending') },
     { id: 'Đang vận chuyển', label: t('orders.statusShipping') },
+    { id: 'Đã nhận hàng', label: language === 'vi' ? 'Đã nhận hàng' : 'Delivered' },
     { id: 'Hoàn thành', label: t('orders.statusCompleted') },
     { id: 'Đã hủy', label: t('orders.statusCancelled') },
   ];
@@ -66,11 +67,20 @@ export default function OrdersScreen({ navigation }) {
 
   // Chuẩn hóa trạng thái đơn hàng để lọc và hiển thị màu
   const normalizeStatus = (status) => {
-    if (status === 'Đang xử lý' || status === 'Chờ xác nhận') return 'Chờ xác nhận';
-    if (status === 'Đang giao' || status === 'Đang vận chuyển') return 'Đang vận chuyển';
-    if (status === 'Đã giao' || status === 'Hoàn thành') return 'Hoàn thành';
-    if (status === 'Đã hủy') return 'Đã hủy';
-    return status || 'Chờ xác nhận';
+    return ({
+      Pending: 'Chờ xác nhận',
+      'Đang xử lý': 'Chờ xác nhận',
+      'Chờ xác nhận': 'Chờ xác nhận',
+      Shipping: 'Đang vận chuyển',
+      'Đang giao': 'Đang vận chuyển',
+      'Đang vận chuyển': 'Đang vận chuyển',
+      Delivered: 'Đã nhận hàng',
+      'Đã giao': 'Đã nhận hàng',
+      Completed: 'Hoàn thành',
+      'Hoàn thành': 'Hoàn thành',
+      Cancelled: 'Đã hủy',
+      'Đã hủy': 'Đã hủy',
+    })[status] || status || 'Chờ xác nhận';
   };
 
   const getStatusBadgeConfig = (status) => {
@@ -87,6 +97,12 @@ export default function OrdersScreen({ navigation }) {
           badgeStyle: [styles.statusBadge, styles.badgeShipping],
           textStyle: [styles.statusText, styles.statusShippingText],
           label: t('orders.statusShipping'),
+        };
+      case 'Đã nhận hàng':
+        return {
+          badgeStyle: [styles.statusBadge, styles.badgeShipping],
+          textStyle: [styles.statusText, styles.statusShippingText],
+          label: language === 'vi' ? 'Đã nhận hàng' : 'Delivered',
         };
       case 'Hoàn thành':
         return {
@@ -112,12 +128,12 @@ export default function OrdersScreen({ navigation }) {
   // Xử lý Hủy đơn hàng
   const handleCancelOrder = (order) => {
     Alert.alert(
-      'Hủy đơn hàng',
-      'Bạn có chắc chắn muốn hủy đơn hàng này không?',
+      t('orders.cancelOrder'),
+      t('orders.cancelConfirm'),
       [
-        { text: 'Không', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Hủy đơn',
+          text: t('common.confirm'),
           style: 'destructive',
           onPress: async () => {
             setCancellingId(order._id);
@@ -128,14 +144,14 @@ export default function OrdersScreen({ navigation }) {
               });
               const data = await res.json();
               if (res.ok) {
-                Alert.alert('Thành công', 'Đơn hàng của bạn đã được hủy.');
+                Alert.alert(t('common.success'), language === 'vi' ? 'Đơn hàng của bạn đã được hủy.' : 'Your order has been cancelled.');
                 loadOrders();
               } else {
-                Alert.alert('Không thể hủy', data.message || 'Lỗi khi hủy đơn hàng');
+                Alert.alert(t('common.error'), data.message || (language === 'vi' ? 'Lỗi khi hủy đơn hàng' : 'Failed to cancel order'));
               }
             } catch (error) {
               console.error(error);
-              Alert.alert('Lỗi mạng', 'Không thể gửi yêu cầu hủy đơn lúc này.');
+              Alert.alert(t('common.error'), t('common.networkError'));
             } finally {
               setCancellingId(null);
             }
@@ -175,7 +191,9 @@ export default function OrdersScreen({ navigation }) {
         {/* Header thẻ: Mã đơn & Trạng thái */}
         <View style={styles.orderHeader}>
           <View style={styles.orderCodeGroup}>
-            <Text style={styles.orderIdText}>Đơn hàng #{orderCode}</Text>
+            <Text style={styles.orderIdText}>
+              {language === 'vi' ? `Đơn hàng #${orderCode}` : `Order #${orderCode}`}
+            </Text>
             {dateStr ? <Text style={styles.orderDateText}>{dateStr}</Text> : null}
           </View>
           <View style={statusConfig.badgeStyle}>
@@ -195,15 +213,17 @@ export default function OrdersScreen({ navigation }) {
                 />
                 <View style={styles.bookInfo}>
                   <Text style={styles.bookName} numberOfLines={1}>
-                    {book.bookName || 'Tên sách không xác định'}
+                    {book.bookName || (language === 'vi' ? 'Tên sách không xác định' : 'Unknown Book')}
                   </Text>
                   <Text style={styles.bookAuthor} numberOfLines={1}>
-                    Tác giả: {book.author || 'Đang cập nhật'}
+                    {language === 'vi' ? 'Tác giả:' : 'Author:'} {book.author || (language === 'vi' ? 'Đang cập nhật' : 'Unknown')}
                   </Text>
                   <View style={styles.bookMetaRow}>
-                    <Text style={styles.bookQuantity}>Số lượng: x{orderItem.quantity}</Text>
+                    <Text style={styles.bookQuantity}>
+                      {language === 'vi' ? 'Số lượng:' : 'Qty:'} x{orderItem.quantity}
+                    </Text>
                     <Text style={styles.bookPrice}>
-                      {(orderItem.price || 0).toLocaleString('vi-VN')} đ
+                      {(orderItem.price || 0).toLocaleString('vi-VN')} {t('common.currency')}
                     </Text>
                   </View>
                 </View>
@@ -212,7 +232,9 @@ export default function OrdersScreen({ navigation }) {
           })}
           {validItems.length > 2 && (
             <Text style={styles.moreItemsText}>
-              + thêm {validItems.length - 2} sản phẩm khác...
+              {language === 'vi'
+                ? `+ thêm ${validItems.length - 2} sản phẩm khác...`
+                : `+ ${validItems.length - 2} more items...`}
             </Text>
           )}
         </View>

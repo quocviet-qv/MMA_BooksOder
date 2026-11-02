@@ -221,6 +221,13 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  rankingCover: {
+    width: 36,
+    height: 48,
+    borderRadius: 6,
+    marginRight: 10,
+    backgroundColor: '#E2E8F0',
+  },
   rankingInfo: {
     flex: 1,
   },

@@ -25,6 +25,7 @@ export default function ProfileScreen({ navigation }) {
   const { t, language, toggleLanguage } = useLanguage();
 
   const [orderCount, setOrderCount] = useState(0);
+  const [favoriteCount, setFavoriteCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   // State cho Modal Đổi mật khẩu
@@ -37,20 +38,26 @@ export default function ProfileScreen({ navigation }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submittingPassword, setSubmittingPassword] = useState(false);
 
-  // Tải thống kê đơn hàng của người dùng
+  // Tải thống kê đơn hàng và sách yêu thích của người dùng
   const loadUserStats = useCallback(async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`${API_URL}/orders/${userId}`);
-      if (res.ok) {
-        const orders = await res.json();
+      const [orderRes, favRes] = await Promise.all([
+        fetch(`${API_URL}/orders/${userId}`),
+        fetch(`${API_URL}/favorites/${userId}`),
+      ]);
+      if (orderRes.ok) {
+        const orders = await orderRes.json();
         setOrderCount(Array.isArray(orders) ? orders.length : 0);
       }
+      if (favRes.ok) {
+        const favs = await favRes.json();
+        setFavoriteCount(Array.isArray(favs) ? favs.length : 0);
+      }
     } catch (error) {
-      console.log('Không thể tải thống kê đơn hàng:', error.message);
+      console.log('Không thể tải thống kê người dùng:', error.message);
     }
   }, [userId]);
-
 
   useFocusEffect(useCallback(() => { loadUserStats(); }, [loadUserStats]));
 
@@ -167,7 +174,7 @@ export default function ProfileScreen({ navigation }) {
             activeOpacity={0.7}
           >
             <Ionicons name="heart-outline" size={24} color="#B91C1C" />
-            <Text style={styles.statNumber}>-</Text>
+            <Text style={styles.statNumber}>{favoriteCount}</Text>
             <Text style={styles.statLabel}>{t('profile.savedCount')}</Text>
           </TouchableOpacity>
         </View>

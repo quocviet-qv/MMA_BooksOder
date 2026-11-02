@@ -8,6 +8,7 @@ const User = require('../models/User');
 const Book = require('../models/Book');
 const Order = require('../models/Order');
 const Review = require('../models/Review');
+const Notification = require('../models/Notification');
 let database, server, base, admin, user1, user2;
 async function api(path, auth, body, method = body ? 'POST' : 'GET') {
   const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: `Bearer ${auth.token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -23,7 +24,7 @@ before(async () => {
   database = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   await mongoose.connect(database.getUri());
   for (const username of ['admin', 'user1', 'user2']) await User.create({ username, password: await bcrypt.hash('test123', 4), role: username === 'admin' ? 'admin' : 'user' });
-  await Promise.all([Order.init(), Review.init(), require('../models/Cart').init(), require('../models/Favorite').init()]);
+  await Promise.all([Order.init(), Review.init(), Notification.init(), require('../models/Cart').init(), require('../models/Favorite').init()]);
   server = require('../app').listen(0, '127.0.0.1');
   await once(server, 'listening');
   base = `http://127.0.0.1:${server.address().port}`;
@@ -99,42 +100,59 @@ test('concurrent buyers cannot oversell the last book; losing checkout rolls bac
   assert.equal(loserCart.length, 1);
   await api(`/cart/${loserCart[0]._id}`, loser, null, 'DELETE');
 });
-test('bank transfer requires admin confirmation; cancellation refunds once; terminal states are locked', async () => {
+test('bank transfer is confirmed after receipt; cancellation refunds once; terminal states are locked', async () => {
   const b = await createBook({ price: 300000 });
   await api('/cart', user1, { bookId: b._id, quantity: 1 });
   const order = (await checkout(user1, { paymentMethod: 'BANK_TRANSFER' })).data.order;
   assert.equal(order.shippingFee, 0);
   assert.equal(order.paymentStatus, 'pending');
-  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Đang vận chuyển' }, 'PUT')).status, 400);
+  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Đang vận chuyển' }, 'PUT')).status, 200);
   assert.equal((await api(`/orders/${order._id}/payment`, user1, { paymentStatus: 'paid' }, 'PUT')).status, 403);
+  assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT')).status, 400);
+  assert.equal((await api(`/orders/${order._id}/status`, user1, { status: 'Delivered' }, 'PUT')).status, 200);
   assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT')).data.order.paymentStatus, 'paid');
   assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT')).status, 400);
-  assert.equal((await api(`/orders/${order._id}/cancel`, user1, {}, 'PUT')).data.order.paymentStatus, 'refund_pending');
-  assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'refunded' }, 'PUT')).data.order.paymentStatus, 'refunded');
-  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Đang vận chuyển' }, 'PUT')).status, 400);
-  assert.equal((await Book.findById(b._id)).stock, 4);
+
+  await api('/cart', user1, { bookId: b._id, quantity: 1 });
+  const cancelledOrder = (await checkout(user1, { paymentMethod: 'BANK_TRANSFER' })).data.order;
+  await Order.updateOne({ _id: cancelledOrder._id }, { $set: { paymentStatus: 'paid' } });
+  assert.equal((await api(`/orders/${cancelledOrder._id}/cancel`, user1, {}, 'PUT')).data.order.paymentStatus, 'refund_pending');
+  assert.equal((await api(`/orders/${cancelledOrder._id}/payment`, admin, { paymentStatus: 'refunded' }, 'PUT')).data.order.paymentStatus, 'refunded');
+  assert.equal((await api(`/orders/${cancelledOrder._id}/status`, admin, { status: 'Đang vận chuyển' }, 'PUT')).status, 400);
+  assert.equal((await Book.findById(b._id)).stock, 3);
 });
-test('COD requires collection before completion; historical book snapshots survive deletion', async () => {
+test('orders require customer receipt confirmation before admin completion; historical snapshots survive deletion', async () => {
   const b = await createBook();
   await api('/cart', user1, { bookId: b._id, quantity: 1 });
   const order = (await checkout(user1)).data.order;
-  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Đang vận chuyển' }, 'PUT')).status, 200);
-  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Hoàn thành' }, 'PUT')).status, 400);
+  assert.equal(order.status, 'Pending');
+  assert.equal((await api(`/orders/${order._id}/status`, user1, { status: 'Shipping' }, 'PUT')).status, 403);
+  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Shipping' }, 'PUT')).status, 200);
+  const skippedReceipt = await api(`/orders/${order._id}/status`, admin, { status: 'Completed' }, 'PUT');
+  assert.equal(skippedReceipt.status, 400);
+  assert.match(skippedReceipt.data.message, /hiện tại "Shipping".*yêu cầu "Completed".*vai trò "admin"/);
+  assert.equal((await api(`/orders/${order._id}/status`, user2, { status: 'Delivered' }, 'PUT')).status, 404);
   assert.equal((await api(`/orders/${order._id}/cancel`, user1, {}, 'PUT')).status, 400);
-  await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT');
-  const completed = await api(`/orders/${order._id}/status`, admin, { status: 'Đã giao' }, 'PUT');
+  assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT')).status, 400);
+  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Delivered' }, 'PUT')).status, 400);
+  const delivered = await api(`/orders/${order._id}/status`, user1, { status: 'Delivered' }, 'PUT');
+  assert.equal(delivered.status, 200);
+  assert.equal(delivered.data.order.status, 'Delivered');
+  assert.equal((await api(`/orders/${order._id}/status`, user1, { status: 'Completed' }, 'PUT')).status, 403);
+  assert.equal((await api(`/orders/${order._id}/payment`, admin, { paymentStatus: 'paid' }, 'PUT')).status, 200);
+  const completed = await api(`/orders/${order._id}/status`, admin, { status: 'Completed' }, 'PUT');
   assert.equal(completed.status, 200);
-  assert.equal(completed.data.order.status, 'Hoàn thành');
+  assert.equal(completed.data.order.status, 'Completed');
   assert.equal(completed.data.order.isRevenueAdded, true);
   assert.equal((await User.findById(admin.userId)).walletBalance, 125000);
-  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Hoàn thành' }, 'PUT')).status, 200);
+  assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Completed' }, 'PUT')).status, 200);
   assert.equal((await User.findById(admin.userId)).walletBalance, 125000);
   await Order.updateOne({ _id: order._id }, { $set: { isRevenueAdded: false } });
   await User.updateOne({ _id: admin.userId }, { $set: { walletBalance: 0 } });
-  const legacyCompletion = await api(`/orders/${order._id}/status`, admin, { status: 'Hoàn thành' }, 'PUT');
+  const legacyCompletion = await api(`/orders/${order._id}/status`, admin, { status: 'Completed' }, 'PUT');
   assert.equal(legacyCompletion.data.order.isRevenueAdded, true);
   assert.equal((await User.findById(admin.userId)).walletBalance, 125000);
-  await api(`/orders/${order._id}/status`, admin, { status: 'Hoàn thành' }, 'PUT');
+  await api(`/orders/${order._id}/status`, admin, { status: 'Completed' }, 'PUT');
   assert.equal((await User.findById(admin.userId)).walletBalance, 125000);
   await api(`/books/${b._id}`, admin, null, 'DELETE');
   const history = await api(`/orders/detail/${order._id}`, user1);
@@ -142,6 +160,46 @@ test('COD requires collection before completion; historical book snapshots survi
   assert.equal((await api(`/orders/${order._id}/status`, admin, { status: 'Đã hủy' }, 'PUT')).status, 400);
   assert.equal((await api('/orders/dashboard/stats', admin)).data.totalRevenue, 125000);
   assert.equal((await api('/orders/dashboard/stats', admin)).data.walletBalance, 125000);
+});
+test('order lifecycle creates private notifications and supports read tracking', async () => {
+  const book = await createBook();
+  await api('/cart', user1, { bookId: book._id, quantity: 1 });
+  const checkoutPayload = { ...delivery, checkoutKey: 'notification-flow-key' };
+  const placed = await api('/checkout', user1, checkoutPayload);
+  assert.equal(placed.status, 201);
+  const orderId = placed.data.order._id;
+  assert.equal((await api('/checkout', user1, checkoutPayload)).data.order._id, orderId);
+
+  const userInitial = await api('/notifications', user1);
+  const adminInitial = await api('/notifications', admin);
+  assert.equal((await api('/notifications', null)).status, 401);
+  assert.equal((await api('/notifications', user2)).data.notifications.some(item => item.orderId === orderId), false);
+  const userOrderNotifications = userInitial.data.notifications.filter(item => item.orderId === orderId);
+  const adminOrderNotifications = adminInitial.data.notifications.filter(item => item.orderId === orderId);
+  assert.equal(userOrderNotifications.length, 1);
+  assert.equal(userOrderNotifications[0].title, 'Đặt hàng thành công');
+  assert.equal(userOrderNotifications[0].isRead, false);
+  assert.equal(adminOrderNotifications.length, 1);
+  assert.match(adminOrderNotifications[0].message, /user user1/);
+
+  assert.equal((await api(`/orders/${orderId}/status`, admin, { status: 'Shipping' }, 'PUT')).status, 200);
+  assert.equal((await api(`/orders/${orderId}/status`, user1, { status: 'Delivered' }, 'PUT')).status, 200);
+  assert.equal((await api(`/orders/${orderId}/payment`, admin, { paymentStatus: 'paid' }, 'PUT')).status, 200);
+  assert.equal((await api(`/orders/${orderId}/status`, admin, { status: 'Completed' }, 'PUT')).status, 200);
+
+  const userFinal = await api('/notifications', user1);
+  const adminFinal = await api('/notifications', admin);
+  const userTitles = userFinal.data.notifications.filter(item => item.orderId === orderId).map(item => item.title);
+  const adminTitles = adminFinal.data.notifications.filter(item => item.orderId === orderId).map(item => item.title);
+  assert.deepEqual(userTitles.sort(), ['Đơn hàng đã hoàn thành', 'Đơn hàng đang được chuẩn bị và đang giao', 'Đặt hàng thành công'].sort());
+  assert.deepEqual(adminTitles.sort(), ['Có đơn hàng mới', 'Đơn hàng đã hoàn thành', 'Đơn hàng đã giao đến khách'].sort());
+
+  const notificationToRead = userFinal.data.notifications.find(item => item.orderId === orderId);
+  assert.equal((await api(`/notifications/${notificationToRead._id}/read`, user2, {}, 'PUT')).status, 404);
+  const readResult = await api(`/notifications/${notificationToRead._id}/read`, user1, {}, 'PUT');
+  assert.equal(readResult.status, 200);
+  assert.equal(readResult.data.notification.isRead, true);
+  assert.equal((await api(`/notifications/${notificationToRead._id}/read`, user1, {}, 'PUT')).data.notification.isRead, true);
 });
 test('only customers with a delivered order can create or update one review per book', async () => {
   const book = await createBook();
@@ -166,7 +224,7 @@ test('only customers with a delivered order can create or update one review per 
     userId: user1.userId,
     totalAmount: 125000,
     paymentStatus: 'paid',
-    status: 'Hoàn thành',
+    status: 'Completed',
     address: delivery.address,
     items: [{ bookId: book._id, quantity: 1, price: book.price }],
   });

@@ -16,10 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_URL, apiFetch as fetch } from '../src/constants/api';
 import { useAuth } from '../src/context/AuthContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/AdminScreenStyles';
 
 export default function AdminScreen({ navigation }) {
   const { logout } = useAuth();
+  const { t, language } = useLanguage();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,10 +53,10 @@ export default function AdminScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert('Xác nhận', 'Bạn có muốn đăng xuất khỏi quyền Quản trị viên?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert(t('common.confirm'), language === 'vi' ? 'Bạn có muốn đăng xuất khỏi quyền Quản trị viên?' : 'Do you want to log out of Admin?', [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Đăng xuất',
+        text: t('common.logout'),
         style: 'destructive',
         onPress: () => logout(),
       },
@@ -63,12 +65,12 @@ export default function AdminScreen({ navigation }) {
 
   const handleDelete = (id, bookName) => {
     Alert.alert(
-      'Cảnh báo xóa sách',
-      `Bạn có chắc chắn muốn xóa cuốn sách "${bookName || 'này'}" khỏi hệ thống?`,
+      language === 'vi' ? 'Cảnh báo xóa sách' : 'Delete Book Confirmation',
+      language === 'vi' ? `Bạn có chắc chắn muốn xóa cuốn sách "${bookName || 'này'}" khỏi hệ thống?` : `Are you sure you want to permanently delete "${bookName || 'this book'}"?`,
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Xóa vĩnh viễn',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -76,13 +78,13 @@ export default function AdminScreen({ navigation }) {
                 method: 'DELETE',
               });
               if (response.ok) {
-                Alert.alert('Thành công', 'Đã xóa sách khỏi kho.');
+                Alert.alert(t('common.success'), language === 'vi' ? 'Đã xóa sách khỏi kho.' : 'Book deleted successfully.');
                 setBooks((prev) => prev.filter((b) => (b._id || b.id) !== id));
               } else {
-                Alert.alert('Thất bại', 'Không thể xóa cuốn sách này.');
+                Alert.alert(t('common.error'), language === 'vi' ? 'Không thể xóa cuốn sách này.' : 'Failed to delete this book.');
               }
             } catch (_error) {
-              Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
+              Alert.alert(t('common.error'), t('common.networkError'));
             }
           },
         },
@@ -107,16 +109,16 @@ export default function AdminScreen({ navigation }) {
 
     let stockStyle = styles.stockIn;
     let stockTextStyle = styles.stockTextIn;
-    let stockLabel = `Còn ${stockCount} cuốn`;
+    let stockLabel = language === 'vi' ? `Còn ${stockCount} cuốn` : `${stockCount} in stock`;
 
     if (stockCount === 0) {
       stockStyle = styles.stockOut;
       stockTextStyle = styles.stockTextOut;
-      stockLabel = 'Hết hàng';
+      stockLabel = language === 'vi' ? 'Hết hàng' : 'Out of stock';
     } else if (stockCount <= 5) {
       stockStyle = styles.stockLow;
       stockTextStyle = styles.stockTextLow;
-      stockLabel = `Sắp hết (${stockCount})`;
+      stockLabel = language === 'vi' ? `Sắp hết (${stockCount})` : `Low stock (${stockCount})`;
     }
 
     return (
@@ -148,11 +150,11 @@ export default function AdminScreen({ navigation }) {
             </Text>
 
             <Text style={styles.bookAuthor} numberOfLines={1}>
-              {item.author || 'Chưa có tác giả'}
+              {item.author || (language === 'vi' ? 'Chưa có tác giả' : 'Unknown author')}
             </Text>
 
             <Text style={styles.bookPrice}>
-              {(item.price || 0).toLocaleString('vi-VN')} đ
+              {(item.price || 0).toLocaleString('vi-VN')} {t('common.currency')}
             </Text>
           </View>
         </View>
@@ -166,7 +168,7 @@ export default function AdminScreen({ navigation }) {
             onPress={() => navigation.navigate('AdminForm', { book: item })}
           >
             <Ionicons name="create-outline" size={16} color="#0F172A" />
-            <Text style={styles.editBtnText}>Sửa (PUT)</Text>
+            <Text style={styles.editBtnText}>{language === 'vi' ? 'Sửa' : 'Edit'}</Text>
           </TouchableOpacity>
 
           {/* Nút Xóa DELETE */}
@@ -176,7 +178,7 @@ export default function AdminScreen({ navigation }) {
             onPress={() => handleDelete(bookId, item.bookName)}
           >
             <Ionicons name="trash-outline" size={16} color="#B91C1C" />
-            <Text style={styles.deleteBtnText}>Xóa</Text>
+            <Text style={styles.deleteBtnText}>{language === 'vi' ? 'Xóa' : 'Delete'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -190,10 +192,14 @@ export default function AdminScreen({ navigation }) {
         <View style={styles.headerLeft}>
           <View style={styles.titleRow}>
             <Ionicons name="shield-checkmark" size={24} color="#B91C1C" />
-            <Text style={styles.headerTitle}>Kho sách (Admin)</Text>
+            <Text style={styles.headerTitle}>
+              {language === 'vi' ? 'Kho sách (Admin)' : 'Book Inventory (Admin)'}
+            </Text>
           </View>
           <Text style={styles.headerSubtitle}>
-            {books.length} đầu sách đang lưu trong hệ thống
+            {language === 'vi'
+              ? `${books.length} đầu sách đang lưu trong hệ thống`
+              : `${books.length} books in catalog`}
           </Text>
         </View>
 
@@ -214,7 +220,9 @@ export default function AdminScreen({ navigation }) {
           onPress={() => navigation.navigate('AdminForm')}
         >
           <Ionicons name="add-circle" size={22} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>Thêm sách mới vào kho (POST)</Text>
+          <Text style={styles.addBtnText}>
+            {language === 'vi' ? 'Thêm sách mới vào kho' : 'Add New Book'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -224,7 +232,11 @@ export default function AdminScreen({ navigation }) {
           <Ionicons name="search-outline" size={18} color="#94A3B8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm theo tên sách, tác giả hoặc thể loại..."
+            placeholder={
+              language === 'vi'
+                ? 'Tìm theo tên sách, tác giả hoặc thể loại...'
+                : 'Search by title, author, or category...'
+            }
             placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}

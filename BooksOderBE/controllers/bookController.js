@@ -4,12 +4,24 @@ const Favorite = require('../models/Favorite');
 const Review = require('../models/Review');
 const fail = (status, message) => Object.assign(new Error(message), { status });
 function input(body) {
-  const { bookName, author, category, coverImage, description = '' } = body;
+  const { bookName, author, category, description = '' } = body;
+  let coverImage = typeof body.coverImage === 'string' ? body.coverImage.trim() : '';
   const price = Number(body.price), stock = Number(body.stock ?? 50);
   if ([bookName, author, category, coverImage].some(v => typeof v !== 'string' || !v.trim()) || typeof description !== 'string') throw fail(400, 'Vui lòng nhập tên sách, tác giả, thể loại và ảnh bìa');
   if (![price, stock].every(Number.isSafeInteger) || price <= 0 || stock < 0) throw fail(400, 'Giá phải là số nguyên dương, tồn kho là số nguyên không âm');
-  if (!/^https?:\/\//i.test(coverImage) && !/^data:image\/(png|jpeg|webp|svg\+xml);base64,/i.test(coverImage)) throw fail(400, 'Ảnh bìa phải là URL ảnh hoặc ảnh tải lên hợp lệ');
-  return { bookName: bookName.trim(), author: author.trim(), category: category.trim(), coverImage: coverImage.trim(), description: description.trim(), price, stock };
+  
+  // Tự động chuẩn hóa nếu người dùng gửi raw Base64 chưa có tiền tố data:image/
+  if (!coverImage.startsWith('data:') && !/^https?:\/\//i.test(coverImage)) {
+    const cleanBase64 = coverImage.replace(/\s+/g, '');
+    if (/^[A-Za-z0-9+/=]+$/.test(cleanBase64) && cleanBase64.length > 50) {
+      coverImage = `data:image/jpeg;base64,${cleanBase64}`;
+    }
+  }
+
+  if (!/^https?:\/\//i.test(coverImage) && !/^data:image\/(png|jpeg|jpg|webp|gif|svg\+xml);base64,/i.test(coverImage)) {
+    throw fail(400, 'Ảnh bìa phải là chuỗi Base64 hợp lệ (data:image/...;base64,...) hoặc URL ảnh');
+  }
+  return { bookName: bookName.trim(), author: author.trim(), category: category.trim(), coverImage, description: description.trim(), price, stock };
 }
 exports.getBooks = async (_req, res) => {
   const [books, stats] = await Promise.all([
@@ -35,7 +47,7 @@ exports.getBooks = async (_req, res) => {
                       },
                     }, 0],
                   },
-                  { $in: ['$status', ['Hoàn thành', 'Đã giao']] },
+                  { $in: ['$status', ['Completed', 'Delivered', 'Hoàn thành', 'Đã giao']] },
                 ],
               },
             },

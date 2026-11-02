@@ -26,6 +26,7 @@ export default {
     favorites: 'Favorites',
     cart: 'Cart',
     orders: 'Orders',
+    notifications: 'Notifications',
     profile: 'Profile',
     adminDashboard: 'Dashboard',
     adminBooks: 'Inventory',
@@ -144,6 +145,9 @@ export default {
     statusShipping: 'Shipping',
     statusCompleted: 'Completed',
     statusCancelled: 'Cancelled',
+  },
+  notifications: {
+    empty: 'You have no notifications.',
   },
 
   // Profile Screen

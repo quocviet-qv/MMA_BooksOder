@@ -7,7 +7,8 @@ export default function PaymentPanel({ order, onUpdate, compact = false }) {
   const { userRole } = useAuth();
   const [busy, setBusy] = useState(false);
   const target = order.paymentStatus === 'refund_pending' ? 'refunded' : 'paid';
-  const canConfirm = userRole === 'admin' && (target === 'refunded' || ['unpaid', 'pending'].includes(order.paymentStatus) && order.status !== 'Đã hủy');
+  const status = ({ 'Đã nhận hàng': 'Delivered', 'Đã giao': 'Delivered' })[order.status] || order.status;
+  const canConfirm = userRole === 'admin' && (target === 'refunded' || ['unpaid', 'pending'].includes(order.paymentStatus) && status === 'Delivered');
   const update = () => Alert.alert('Xác nhận thanh toán', target === 'refunded' ? 'Xác nhận cửa hàng đã hoàn tiền cho khách?' : 'Chỉ xác nhận khi cửa hàng đã nhận đủ tiền của đơn này.', [{ text: 'Quay lại', style: 'cancel' }, { text: 'Xác nhận', onPress: async () => {
     setBusy(true);
     try {

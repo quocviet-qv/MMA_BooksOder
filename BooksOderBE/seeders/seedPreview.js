@@ -20,6 +20,6 @@ module.exports = async function seedPreview() {
   await Book.insertMany(books.map(([bookName, author, price, category, isbn, description], index) => {
     const colors = ['#d7b57b', '#b1443b', '#2d6859', '#e4c981', '#e5e0d3', '#244964', '#679c73', '#eec64a'];
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="520"><rect width="360" height="520" fill="${colors[index]}"/><rect x="18" width="3" height="520" fill="#ffffff33"/><text x="180" y="180" font-size="22" font-family="serif" text-anchor="middle" fill="white">BOOKS ORDER</text><text x="180" y="270" font-size="18" font-family="sans-serif" text-anchor="middle" fill="white">${author}</text><path d="M130 320h100v60H130z M180 320v60" fill="none" stroke="white" stroke-width="3"/></svg>`;
-    return { bookName, author, price, category, description, stock: index === 7 ? 3 : 25, coverImage: isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg` : `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` };
+    return { bookName, author, price, category, description, stock: index === 7 ? 3 : 25, coverImage: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` };
   }));
 };

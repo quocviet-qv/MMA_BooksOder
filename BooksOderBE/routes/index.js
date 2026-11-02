@@ -33,7 +33,7 @@ router.post('/orders/checkout', ownAccount, orders.checkout);
 router.get('/orders/dashboard/stats', adminOnly, orders.getDashboardStats);
 router.get('/orders', adminOnly, orders.getAllOrders);
 router.get('/orders/detail/:id', orders.getOrderDetail);
-router.put('/orders/:id/status', adminOnly, orders.updateOrderStatus);
+router.put('/orders/:id/status', orders.updateOrderStatus);
 router.put('/orders/:id/payment', adminOnly, orders.updatePayment);
 router.put('/orders/:id/cancel', orders.cancelOrder);
 router.get('/orders/user/:userId', ownAccount, orders.getUserOrders);

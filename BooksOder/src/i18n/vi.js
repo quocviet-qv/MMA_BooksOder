@@ -26,6 +26,7 @@ export default {
     favorites: 'Yêu thích',
     cart: 'Giỏ hàng',
     orders: 'Đơn hàng',
+    notifications: 'Thông báo',
     profile: 'Tài khoản',
     adminDashboard: 'Thống kê',
     adminBooks: 'Kho sách',
@@ -144,6 +145,9 @@ export default {
     statusShipping: 'Đang vận chuyển',
     statusCompleted: 'Hoàn thành',
     statusCancelled: 'Đã hủy',
+  },
+  notifications: {
+    empty: 'Bạn chưa có thông báo nào.',
   },
 
   // Profile Screen

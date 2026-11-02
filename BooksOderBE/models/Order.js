@@ -8,6 +8,8 @@ const orderSchema = new mongoose.Schema({
   note: { type: String, default: '' },
   subtotal: { type: Number, min: 0 },
   shippingFee: { type: Number, min: 0, default: 0 },
+  voucherCode: { type: String, default: '' },
+  discountAmount: { type: Number, min: 0, default: 0 },
   paymentMethod: { type: String, enum: ['COD', 'BANK_TRANSFER'], default: 'COD' },
   paymentStatus: { type: String, enum: ['unpaid', 'pending', 'paid', 'refund_pending', 'refunded'], default: 'unpaid' },
   paidAt: Date,
@@ -23,8 +25,8 @@ const orderSchema = new mongoose.Schema({
   totalAmount: { type: Number, required: true },
   status: { 
     type: String, 
-    default: 'Chờ xác nhận',
-    enum: ['Chờ xác nhận', 'Đang vận chuyển', 'Hoàn thành', 'Đã hủy', 'Đang xử lý', 'Đang giao', 'Đã giao']
+    default: 'Pending',
+    enum: ['Pending', 'Shipping', 'Delivered', 'Completed', 'Cancelled', 'Chờ xác nhận', 'Đang vận chuyển', 'Hoàn thành', 'Đã hủy', 'Đang xử lý', 'Đang giao', 'Đã giao']
   },
   isRevenueAdded: { type: Boolean, default: false },
   address: { type: String, required: true } // Địa chỉ giao hàng
