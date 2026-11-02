@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import { CommonActions, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
 import { AlertProvider } from './src/context/AlertContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -14,7 +14,6 @@ import { LanguageProvider, useLanguage } from './src/context/LanguageContext';
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AdminFormScreen from './screens/AdminFormScreen';
 import AdminOrdersScreen from './screens/AdminOrdersScreen';
-import AdminProfileScreen from './screens/AdminProfileScreen';
 import AdminScreen from './screens/AdminScreen';
 import CartScreen from './screens/CartScreen';
 import CheckoutScreen from './screens/CheckoutScreen';
@@ -34,6 +33,46 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const OrdersStack = createNativeStackNavigator();
 
+// Quay về danh sách đơn hàng trong cùng stack.
+// Nếu OrderDetail được mở trực tiếp (từ Checkout / Thông báo) thì stack chỉ có [OrderDetail],
+// goBack() khi đó sẽ nhảy sang tab khác -> người dùng bị "kẹt". Vì vậy thay thế bằng màn danh sách.
+const backToOrdersList = (navigation, listName) => {
+  const state = navigation.getState();
+  const hasListBelow = state?.routes?.length > 1 && state.routes[0]?.name === listName;
+  if (hasListBelow) {
+    navigation.goBack();
+  } else {
+    navigation.dispatch(
+      CommonActions.reset({ index: 0, routes: [{ name: listName }] })
+    );
+  }
+};
+
+// Bấm tab Đơn hàng ở bottom tab: luôn reset stack con về màn danh sách đơn hàng.
+const resetOrdersStackOnTabPress = (listName) => ({ navigation, route }) => ({
+  tabPress: (e) => {
+    const stackState = route.state;
+    const isOnList = !stackState || (stackState.index === 0 && stackState.routes[0]?.name === listName);
+    if (isOnList) return;
+    e.preventDefault();
+    navigation.dispatch({
+      ...CommonActions.reset({ index: 0, routes: [{ name: listName }] }),
+      target: stackState.key,
+    });
+    navigation.navigate(route.name);
+  },
+});
+
+const backButton = (navigation, listName) => () => (
+  <TouchableOpacity
+    onPress={() => backToOrdersList(navigation, listName)}
+    style={{ marginRight: 15, paddingVertical: 5 }}
+    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  >
+    <Ionicons name="arrow-back" size={24} color="#B91C1C" />
+  </TouchableOpacity>
+);
+
 function UserOrdersStack() {
   const { t } = useLanguage();
 
@@ -43,13 +82,14 @@ function UserOrdersStack() {
       <OrdersStack.Screen
         name="OrderDetail"
         component={OrderDetailScreen}
-        options={{
+        options={({ navigation }) => ({
           headerShown: true,
           title: t('headers.orderDetail'),
           headerTintColor: '#B91C1C',
           headerTitleStyle: { color: '#0F172A', fontWeight: 'bold' },
           headerStyle: { backgroundColor: '#F8F9FA' },
-        }}
+          headerLeft: backButton(navigation, 'OrdersList'),
+        })}
       />
     </OrdersStack.Navigator>
   );
@@ -64,13 +104,14 @@ function AdminOrdersStack() {
       <OrdersStack.Screen
         name="OrderDetail"
         component={OrderDetailScreen}
-        options={{
+        options={({ navigation }) => ({
           headerShown: true,
           title: t('headers.orderDetail'),
           headerTintColor: '#B91C1C',
           headerTitleStyle: { color: '#0F172A', fontWeight: 'bold' },
           headerStyle: { backgroundColor: '#F8F9FA' },
-        }}
+          headerLeft: backButton(navigation, 'AdminOrdersList'),
+        })}
       />
     </OrdersStack.Navigator>
   );
@@ -115,7 +156,12 @@ function MainTabs() {
           tabBarBadgeStyle: { backgroundColor: '#B91C1C', color: '#FFF', fontSize: 11 },
         }}
       />
-      <Tab.Screen name="Orders" component={UserOrdersStack} options={{ title: t('tabs.orders') }} />
+      <Tab.Screen
+        name="Orders"
+        component={UserOrdersStack}
+        options={{ title: t('tabs.orders') }}
+        listeners={resetOrdersStackOnTabPress('OrdersList')}
+      />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: t('tabs.profile') }} />
     </Tab.Navigator>
   );
@@ -136,8 +182,6 @@ function AdminTabs() {
             iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'AdminOrdersTab') {
             iconName = focused ? 'receipt' : 'receipt-outline';
-          } else if (route.name === 'AdminProfile') {
-            iconName = focused ? 'person' : 'person-outline';
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -156,11 +200,7 @@ function AdminTabs() {
         name="AdminOrdersTab"
         component={AdminOrdersStack}
         options={{ title: t('tabs.adminOrders') }}
-      />
-      <Tab.Screen
-        name="AdminProfile"
-        component={AdminProfileScreen}
-        options={{ title: t('tabs.profile') }}
+        listeners={resetOrdersStackOnTabPress('AdminOrdersList')}
       />
     </Tab.Navigator>
   );

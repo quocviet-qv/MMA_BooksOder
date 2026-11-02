@@ -1,4 +1,7 @@
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const GRID_CARD_WIDTH = (width - 44) / 2;
 
 export const styles = StyleSheet.create({
   container: {
@@ -155,5 +158,149 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  /* --- RECOMMENDATION SECTION (VERTICAL GRID LIKE HOMESCREEN) --- */
+  recommendSection: {
+    marginTop: 20,
+    marginBottom: 20,
+    paddingTop: 18,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  recommendHeader: {
+    marginBottom: 14,
+  },
+  recommendTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recommendTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  recommendSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  recommendGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  gridCard: {
+    width: GRID_CARD_WIDTH,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 14,
+  },
+  gridImageWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: 180,
+    backgroundColor: '#F1F5F9',
+  },
+  gridCoverImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  gridDiscountBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#B91C1C',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+    shadowColor: '#B91C1C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  gridDiscountText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  gridBookInfo: {
+    padding: 10,
+  },
+  gridCategoryTag: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  gridCategoryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  gridBookTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 18,
+    minHeight: 36,
+  },
+  gridBookAuthor: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  gridRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  gridRatingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  gridPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  gridBookPrice: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#B91C1C',
+  },
+  gridOriginalPrice: {
+    fontSize: 11,
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  gridQuickAddBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#B91C1C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#B91C1C',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
   },
 });

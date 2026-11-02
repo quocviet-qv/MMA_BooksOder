@@ -4,7 +4,7 @@ import { cancellationReasonCodes } from '../constants/cancellation';
 import { useLanguage } from '../context/LanguageContext';
 export default function CancellationNotice({ order }) {
   const { t, language } = useLanguage();
-  if (order.status !== 'Đã hủy') return null;
+  if (order.status !== 'Đã hủy' && order.status !== 'Cancelled') return null;
   const reason = cancellationReasonCodes.includes(order.cancellationReasonCode)
     ? t(`cancellation.${order.cancellationReasonCode}`)
     : order.cancellationReason;

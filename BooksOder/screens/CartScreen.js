@@ -24,9 +24,56 @@ export default function CartScreen({ navigation }) {
   const { t } = useLanguage();
 
   const [cartItems, setCartItems] = useState([]);
+  const [recommendedBooks, setRecommendedBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [addingId, setAddingId] = useState(null);
 
+  const fetchRecommendations = useCallback(async (currentCart) => {
+    if (!currentCart || currentCart.length === 0) {
+      setRecommendedBooks([]);
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/books`);
+      if (!response.ok) return;
+      const allBooks = await response.json();
+      if (!Array.isArray(allBooks)) return;
+
+      const inCartIds = new Set(
+        currentCart
+          .map((item) => (item.bookId?._id ? item.bookId._id.toString() : item.bookId ? item.bookId.toString() : ''))
+          .filter(Boolean)
+      );
+
+      const inCartCategories = new Set(
+        currentCart.map((item) => item.bookId?.category).filter(Boolean)
+      );
+      const inCartAuthors = new Set(
+        currentCart.map((item) => item.bookId?.author).filter(Boolean)
+      );
+
+      // Lọc bỏ sách đã có trong giỏ
+      const candidates = allBooks.filter(
+        (b) => b && b._id && !inCartIds.has(b._id.toString())
+      );
+
+      // Chấm điểm liên quan: cùng thể loại (+3), cùng tác giả (+2), rating
+      const scored = candidates.map((book) => {
+        let score = 0;
+        if (book.category && inCartCategories.has(book.category)) score += 3;
+        if (book.author && inCartAuthors.has(book.author)) score += 2;
+        if (book.averageRating) score += book.averageRating * 0.5;
+        return { book, score };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      const topList = scored.slice(0, 8).map((s) => s.book);
+      setRecommendedBooks(topList);
+    } catch (err) {
+      console.error('Lỗi tải sách gợi ý:', err);
+    }
+  }, []);
 
   const fetchCart = useCallback(async () => {
     try {
@@ -36,6 +83,7 @@ export default function CartScreen({ navigation }) {
         const data = await response.json();
         const validItems = Array.isArray(data) ? data.filter((item) => item && item.bookId) : [];
         setCartItems(validItems);
+        fetchRecommendations(validItems);
       }
     } catch (error) {
       console.error(error);
@@ -44,7 +92,7 @@ export default function CartScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId, t]);
+  }, [userId, t, fetchRecommendations]);
 
 
   useFocusEffect(useCallback(() => { fetchCart(); }, [fetchCart]));
@@ -202,6 +250,121 @@ export default function CartScreen({ navigation }) {
     );
   }
 
+  const handleAddRecommendedToCart = async (book) => {
+    setAddingId(book._id);
+    try {
+      const response = await fetch(`${API_URL}/cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userId || 'user123', bookId: book._id, quantity: 1 }),
+      });
+      if (response.ok) {
+        refreshCartCount(userId);
+        fetchCart();
+        Alert.alert(t('common.success'), `${t('cart.addSuccess')}\n"${book.bookName}"`);
+      } else {
+        const data = await response.json();
+        Alert.alert(t('common.error'), data.message || 'Không thể thêm vào giỏ hàng');
+      }
+    } catch (_error) {
+      Alert.alert(t('common.error'), t('common.networkError'));
+    } finally {
+      setAddingId(null);
+    }
+  };
+
+  const renderRecommendations = () => {
+    if (!recommendedBooks || recommendedBooks.length === 0) return null;
+
+    return (
+      <View style={styles.recommendSection}>
+        <View style={styles.recommendHeader}>
+          <View style={styles.recommendTitleRow}>
+            <Ionicons name="sparkles" size={18} color="#B91C1C" />
+            <Text style={styles.recommendTitle}>{t('cart.recommendedTitle')}</Text>
+          </View>
+          <Text style={styles.recommendSubtitle}>
+            {t('cart.recommendedSubtitle')}
+          </Text>
+        </View>
+
+        <View style={styles.recommendGrid}>
+          {recommendedBooks.map((item) => {
+            const originalPrice = Math.round((item.price || 0) * 1.15);
+            const isAdding = addingId === item._id;
+
+            return (
+              <TouchableOpacity
+                key={item._id}
+                style={styles.gridCard}
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate('Chi tiết', { book: item, bookId: item._id })}
+              >
+                <View style={styles.gridImageWrapper}>
+                  <Image
+                    source={{ uri: item.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400' }}
+                    style={styles.gridCoverImage}
+                  />
+                  <View style={styles.gridDiscountBadge}>
+                    <Text style={styles.gridDiscountText}>-15%</Text>
+                  </View>
+                </View>
+
+                <View style={styles.gridBookInfo}>
+                  {item.category ? (
+                    <View style={styles.gridCategoryTag}>
+                      <Text style={styles.gridCategoryText} numberOfLines={1}>
+                        {item.category}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.gridBookTitle} numberOfLines={2}>
+                    {item.bookName}
+                  </Text>
+                  <Text style={styles.gridBookAuthor} numberOfLines={1}>
+                    {item.author || ''}
+                  </Text>
+
+                  <View style={styles.gridRatingRow}>
+                    <Ionicons name="star" size={12} color="#F59E0B" />
+                    <Text style={styles.gridRatingText}>
+                      {item.averageRating && item.averageRating > 0 ? item.averageRating.toFixed(1) : '5.0'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.gridPriceRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.gridBookPrice}>
+                        {(item.price || 0).toLocaleString('vi-VN')} {t('common.currency')}
+                      </Text>
+                      <Text style={styles.gridOriginalPrice}>
+                        {originalPrice.toLocaleString('vi-VN')} {t('common.currency')}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.gridQuickAddBtn}
+                      activeOpacity={0.8}
+                      disabled={isAdding}
+                      onPress={() => handleAddRecommendedToCart(item)}
+                    >
+                      {isAdding ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Ionicons name="bag-add-outline" size={16} color="#FFFFFF" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -212,6 +375,7 @@ export default function CartScreen({ navigation }) {
         data={cartItems}
         keyExtractor={(item) => item._id}
         renderItem={renderItem}
+        ListFooterComponent={renderRecommendations}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={

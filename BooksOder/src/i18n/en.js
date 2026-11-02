@@ -113,6 +113,10 @@ export default {
     removeConfirm: 'Remove this book from your cart?',
     clearCart: 'Clear Cart',
     quantity: 'Quantity:',
+    recommendedTitle: 'Recommended for You',
+    recommendedSubtitle: 'Similar books you might like',
+    addToCart: 'Add to Cart',
+    addSuccess: 'Book added to cart!',
   },
   checkout: {
     title: 'Payment & Delivery',

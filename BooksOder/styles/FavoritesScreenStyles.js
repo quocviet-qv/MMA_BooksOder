@@ -1,6 +1,8 @@
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
+const { width } = Dimensions.get('window');
 const SCREEN_PADDING = 16;
+const GRID_CARD_WIDTH = (width - 44) / 2;
 
 export const styles = StyleSheet.create({
   container: {
@@ -418,5 +420,65 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
     marginRight: 6,
+  },
+
+  /* --- RECOMMENDATION SECTION (VERTICAL 2-COLUMN GRID) --- */
+  recommendSection: {
+    marginTop: 24,
+    marginBottom: 20,
+    paddingTop: 18,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  recommendHeader: {
+    marginBottom: 14,
+  },
+  recommendTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recommendTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  recommendSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  recommendGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  recommendCard: {
+    width: GRID_CARD_WIDTH,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 14,
+  },
+  recommendImageWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: 175,
+    backgroundColor: '#F1F5F9',
+  },
+  recommendCoverImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  recommendCardBody: {
+    padding: 10,
   },
 });

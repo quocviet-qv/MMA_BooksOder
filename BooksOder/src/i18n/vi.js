@@ -113,6 +113,10 @@ export default {
     removeConfirm: 'Bạn có muốn bỏ cuốn sách này khỏi giỏ hàng?',
     clearCart: 'Xóa toàn bộ',
     quantity: 'Số lượng:',
+    recommendedTitle: 'Gợi ý cho bạn',
+    recommendedSubtitle: 'Sách tương tự có thể bạn sẽ thích',
+    addToCart: 'Thêm vào giỏ',
+    addSuccess: 'Đã thêm sách vào giỏ hàng!',
   },
   checkout: {
     title: 'Thông tin thanh toán',

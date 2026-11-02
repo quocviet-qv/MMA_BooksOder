@@ -285,7 +285,7 @@ exports.cancelOrder = async (req, res) => {
 };
 exports.updateOrderStatus = async (req, res) => {
   const status = normalize(req.body.status);
-  if (!['Shipping', 'Delivered', 'Completed'].includes(status)) throw fail(400, 'Trạng thái đơn hàng không hợp lệ');
+  if (!['Shipping', 'Delivered', 'Completed', 'Cancelled'].includes(status)) throw fail(400, 'Trạng thái đơn hàng không hợp lệ');
   res.json({ message: 'Đã cập nhật đơn hàng', order: await changeStatus(req, status) });
 };
 exports.updatePayment = async (req, res) => {
@@ -293,7 +293,8 @@ exports.updatePayment = async (req, res) => {
   await mongoose.connection.transaction(async session => {
     const order = await accessibleOrder(req, session);
     const target = req.body.paymentStatus;
-    if (target === 'paid' && ['unpaid', 'pending'].includes(order.paymentStatus) && normalize(order.status) === 'Delivered') {
+    const isBankTransfer = order.paymentMethod === 'BANK_TRANSFER';
+    if (target === 'paid' && order.paymentStatus !== 'paid' && (isBankTransfer || normalize(order.status) === 'Delivered')) {
       order.paymentStatus = 'paid';
       order.paidAt = new Date();
     } else if (target === 'refunded' && order.paymentStatus === 'refund_pending' && normalize(order.status) === 'Cancelled') {

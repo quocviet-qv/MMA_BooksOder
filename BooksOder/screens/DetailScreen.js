@@ -66,14 +66,44 @@ export default function DetailScreen({ route, navigation }) {
   const [commentText, setCommentText] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  // Sách tương tự gợi ý
+  const [relatedBooks, setRelatedBooks] = useState([]);
+
+  const fetchRelatedBooks = useCallback(async (currentCategory, currentAuthor) => {
+    if (!bookId) return;
+    try {
+      const response = await fetch(`${API_URL}/books`);
+      if (!response.ok) return;
+      const all = await response.json();
+      if (!Array.isArray(all)) return;
+
+      const filtered = all.filter((b) => b && (b._id || b.id).toString() !== bookId);
+      const scored = filtered.map((b) => {
+        let score = 0;
+        if (currentCategory && b.category === currentCategory) score += 3;
+        if (currentAuthor && b.author === currentAuthor) score += 2;
+        if (b.averageRating) score += b.averageRating * 0.5;
+        return { book: b, score };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      setRelatedBooks(scored.slice(0, 8).map((s) => s.book));
+    } catch (e) {
+      console.error('Lỗi tải sách liên quan:', e);
+    }
+  }, [bookId]);
+
   const fetchBook = useCallback(async () => {
-    if (initialBook || !bookId) return;
+    if (initialBook || !bookId) {
+      if (initialBook) fetchRelatedBooks(initialBook.category, initialBook.author);
+      return;
+    }
     setBookLoading(true);
     try {
       const response = await fetch(`${API_URL}/books/${bookId}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Không thể tải thông tin sách');
       setBook(data);
+      fetchRelatedBooks(data.category, data.author);
       setBookError('');
     } catch (error) {
       console.error('Lỗi tải thông tin sách:', error);
@@ -462,6 +492,56 @@ export default function DetailScreen({ route, navigation }) {
                   </View>
                 );
               })}
+            </View>
+          )}
+
+          {/* SÁCH TƯƠNG TỰ CÓ THỂ BẠN THÍCH (SLIDER NGANG) */}
+          {relatedBooks.length > 0 && (
+            <View style={styles.relatedSection}>
+              <View style={styles.relatedHeader}>
+                <View style={styles.relatedTitleRow}>
+                  <Ionicons name="sparkles" size={18} color="#B91C1C" />
+                  <Text style={styles.relatedTitle}>
+                    {language === 'vi' ? 'Sách tương tự có thể bạn thích' : 'Similar Books You Might Like'}
+                  </Text>
+                </View>
+                <Text style={styles.relatedSubtitle}>
+                  {language === 'vi'
+                    ? (book?.category ? `Cùng thể loại "${book.category}" & tác giả` : 'Gợi ý phù hợp với sở thích của bạn')
+                    : 'Recommended based on genre & author'}
+                </Text>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.relatedScroll}
+              >
+                {relatedBooks.map((item) => (
+                  <TouchableOpacity
+                    key={(item.id || item._id).toString()}
+                    style={styles.relatedCard}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.push('Chi tiết', { book: item, bookId: (item.id || item._id).toString() })}
+                  >
+                    <Image
+                      source={{ uri: item.coverImage || 'https://via.placeholder.com/150' }}
+                      style={styles.relatedImage}
+                    />
+                    {item.category ? (
+                      <View style={styles.relatedBadge}>
+                        <Text style={styles.relatedBadgeText}>{item.category}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.relatedBookTitle} numberOfLines={2}>
+                      {item.bookName}
+                    </Text>
+                    <Text style={styles.relatedPrice}>
+                      {(item.price || 0).toLocaleString('vi-VN')} đ
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
         </View>

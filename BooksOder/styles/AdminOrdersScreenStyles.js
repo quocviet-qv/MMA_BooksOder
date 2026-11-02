@@ -270,7 +270,8 @@ export const styles = StyleSheet.create({
   customerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
+    flexWrap: 'wrap',
   },
   customerName: {
     fontSize: 13,
@@ -278,21 +279,44 @@ export const styles = StyleSheet.create({
     color: '#0F172A',
     marginLeft: 6,
   },
+  customerPhone: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    marginTop: 2,
   },
   addressText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#475569',
     marginLeft: 6,
     flex: 1,
     lineHeight: 18,
   },
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  noteText: {
+    fontSize: 12,
+    color: '#B45309',
+    marginLeft: 6,
+    flex: 1,
+    lineHeight: 17,
+    fontStyle: 'italic',
+  },
 
   /* ITEMS SECTION */
   itemsSection: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   itemRow: {
     flexDirection: 'row',
@@ -302,8 +326,8 @@ export const styles = StyleSheet.create({
     borderBottomColor: '#F8FAFC',
   },
   itemCover: {
-    width: 40,
-    height: 56,
+    width: 38,
+    height: 52,
     borderRadius: 6,
     backgroundColor: '#F1F5F9',
     resizeMode: 'cover',
@@ -333,6 +357,21 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  moreItemsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    backgroundColor: '#FFF1F2',
+    borderRadius: 8,
+    marginTop: 6,
+    gap: 4,
+  },
+  moreItemsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B91C1C',
   },
 
   /* CARD FOOTER */
@@ -432,6 +471,38 @@ export const styles = StyleSheet.create({
   },
   btnCancelText: {
     color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  btnDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    gap: 4,
+  },
+  btnDetailText: {
+    color: '#475569',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  shippingNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    gap: 6,
+  },
+  shippingNoticeText: {
+    color: '#2563EB',
     fontSize: 12,
     fontWeight: '700',
   },

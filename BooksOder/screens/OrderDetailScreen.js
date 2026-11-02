@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { CommonActions, useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  BackHandler,
   Image,
   ScrollView,
   Text,
@@ -46,7 +48,22 @@ export default function OrderDetailScreen({ route, navigation }) {
   useFocusEffect(
     useCallback(() => {
       fetchOrderDetail();
-    }, [fetchOrderDetail])
+
+      // Phím Back cứng (Android): luôn quay về danh sách đơn hàng thay vì nhảy sang tab khác
+      const onBackPress = () => {
+        const listName = userRole === 'admin' ? 'AdminOrdersList' : 'OrdersList';
+        const state = navigation.getState();
+        if (state?.routes?.length > 1 && state.routes[0]?.name === listName) {
+          navigation.goBack();
+        } else {
+          navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: listName }] }));
+        }
+        return true;
+      };
+
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [fetchOrderDetail, navigation, userRole])
   );
 
   const normalizeStatus = (status) => {
@@ -61,6 +78,84 @@ export default function OrderDetailScreen({ route, navigation }) {
     })[status] || status || 'Pending';
   };
 
+  const showPaymentConfirmationPrompt = () => {
+    Alert.alert(
+      language === 'vi' ? 'Chưa xác nhận thanh toán ⚠️' : 'Payment Not Confirmed ⚠️',
+      language === 'vi'
+        ? 'Đơn hàng này thanh toán bằng Chuyển khoản ngân hàng nhưng chưa được xác nhận đã thu tiền.\n\nBạn có muốn xác nhận đã thu tiền và duyệt giao hàng luôn không?'
+        : 'This order was placed via Bank Transfer but payment has not been confirmed yet.\n\nWould you like to confirm payment and approve shipping now?',
+      [
+        {
+          text: language === 'vi' ? 'Để sau' : 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: language === 'vi' ? 'Xác nhận & Giao hàng' : 'Confirm & Ship',
+          style: 'default',
+          onPress: () => confirmPaymentAndShip(),
+        },
+      ]
+    );
+  };
+
+  const confirmPaymentAndShip = async () => {
+    setUpdatingStatus(true);
+    try {
+      const payRes = await fetch(`${API_URL}/orders/${order._id}/payment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentStatus: 'paid' }),
+      });
+      const payData = await payRes.json();
+      if (!payRes.ok) {
+        Alert.alert(
+          language === 'vi' ? 'Lỗi' : 'Error',
+          payData.message || (language === 'vi' ? 'Không thể xác nhận thanh toán.' : 'Failed to confirm payment.')
+        );
+        return;
+      }
+
+      const statusRes = await fetch(`${API_URL}/orders/${order._id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Shipping' }),
+      });
+      const statusData = await statusRes.json();
+      if (!statusRes.ok) {
+        Alert.alert(
+          language === 'vi' ? 'Lỗi' : 'Error',
+          statusData.message || (language === 'vi' ? 'Không thể duyệt đơn hàng.' : 'Failed to approve order.')
+        );
+        return;
+      }
+
+      setOrder(statusData.order);
+      await fetchOrderDetail();
+      Alert.alert(
+        language === 'vi' ? 'Thành công 🎉' : 'Success 🎉',
+        language === 'vi'
+          ? 'Đã xác nhận thanh toán và duyệt giao hàng.'
+          : 'Payment confirmed and order is now shipping.'
+      );
+    } catch (error) {
+      console.error('Lỗi xác nhận thanh toán và duyệt đơn:', error);
+      Alert.alert(
+        language === 'vi' ? 'Lỗi kết nối' : 'Network Error',
+        language === 'vi' ? 'Không thể kết nối đến máy chủ.' : 'Could not connect to server.'
+      );
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleApproveShipping = () => {
+    if (order?.paymentMethod === 'BANK_TRANSFER' && order?.paymentStatus !== 'paid') {
+      showPaymentConfirmationPrompt();
+      return;
+    }
+    handleStatusUpdate('Shipping');
+  };
+
   const handleStatusUpdate = async (status, successMessage) => {
     setUpdatingStatus(true);
     const requestBody = { status };
@@ -72,6 +167,10 @@ export default function OrderDetailScreen({ route, navigation }) {
       });
       const data = await response.json();
       if (!response.ok) {
+        if (response.status === 400 && data.message?.includes('chuyển khoản')) {
+          showPaymentConfirmationPrompt();
+          return;
+        }
         const error = new Error(data.message || 'Không thể cập nhật trạng thái đơn hàng.');
         error.response = { status: response.status, data };
         throw error;
@@ -415,7 +514,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         <TouchableOpacity
           style={styles.statusActionBtn}
           disabled={updatingStatus}
-          onPress={() => handleStatusUpdate('Shipping')}
+          onPress={handleApproveShipping}
         >
           {updatingStatus ? (
             <ActivityIndicator color="#FFFFFF" />

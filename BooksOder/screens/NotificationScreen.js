@@ -66,11 +66,11 @@ export default function NotificationScreen({ navigation }) {
     navigation.navigate(userRole === 'admin' ? 'Admin' : 'Main', userRole === 'admin'
       ? {
           screen: 'AdminOrdersTab',
-          params: { screen: 'OrderDetail', params: { orderId: item.orderId } },
+          params: { screen: 'OrderDetail', initial: false, params: { orderId: item.orderId } },
         }
       : {
           screen: 'Orders',
-          params: { screen: 'OrderDetail', params: { orderId: item.orderId } },
+          params: { screen: 'OrderDetail', initial: false, params: { orderId: item.orderId } },
         });
   };
 

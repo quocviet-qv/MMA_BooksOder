@@ -26,12 +26,54 @@ export default function FavoritesScreen({ navigation }) {
   const { language } = useLanguage();
 
   const [favorites, setFavorites] = useState([]);
+  const [recommendedBooks, setRecommendedBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [searchQuery, setSearchQuery] = useState('');
   const [addingCartId, setAddingCartId] = useState(null);
 
+  const fetchRecommendations = useCallback(async (currentFavorites = []) => {
+    try {
+      const response = await fetch(`${API_URL}/books`);
+      if (!response.ok) return;
+      const allBooks = await response.json();
+      if (!Array.isArray(allBooks)) return;
+
+      const favIds = new Set(
+        currentFavorites.map((item) => {
+          const b = item.bookId || {};
+          return (b._id || b.id || item.bookId || '').toString();
+        })
+      );
+      const favCategories = new Set(
+        currentFavorites.map((item) => item.bookId?.category).filter(Boolean)
+      );
+      const favAuthors = new Set(
+        currentFavorites.map((item) => item.bookId?.author).filter(Boolean)
+      );
+
+      // Lọc bỏ sách đã có trong danh sách yêu thích
+      const candidates = allBooks.filter(
+        (b) => b && (b._id || b.id) && !favIds.has((b._id || b.id).toString())
+      );
+
+      // Chấm điểm liên quan: cùng thể loại (+3), cùng tác giả (+2), rating
+      const scored = candidates.map((book) => {
+        let score = 0;
+        if (book.category && favCategories.has(book.category)) score += 3;
+        if (book.author && favAuthors.has(book.author)) score += 2;
+        if (book.averageRating) score += book.averageRating * 0.5;
+        return { book, score };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      const topList = scored.slice(0, 8).map((s) => s.book);
+      setRecommendedBooks(topList);
+    } catch (err) {
+      console.error('Lỗi tải sách gợi ý:', err);
+    }
+  }, []);
 
   const fetchFavorites = useCallback(async () => {
     try {
@@ -43,6 +85,7 @@ export default function FavoritesScreen({ navigation }) {
           ? data.filter((item) => item && item.bookId)
           : [];
         setFavorites(validFavorites);
+        fetchRecommendations(validFavorites);
       }
     } catch (error) {
       console.error('Lỗi khi tải danh sách yêu thích:', error);
@@ -50,8 +93,7 @@ export default function FavoritesScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId]);
-
+  }, [userId, fetchRecommendations]);
 
   useFocusEffect(useCallback(() => { fetchFavorites(); refreshCartCount(userId); }, [fetchFavorites, refreshCartCount, userId]));
 
@@ -63,9 +105,11 @@ export default function FavoritesScreen({ navigation }) {
   const handleRemoveFavorite = async (bookId, bookName) => {
     const currentId = userId || 'user123';
     // Cập nhật giao diện tức thì (optimistic update)
-    setFavorites((prev) =>
-      prev.filter((item) => (item.bookId._id || item.bookId) !== bookId)
-    );
+    setFavorites((prev) => {
+      const updated = prev.filter((item) => (item.bookId?._id || item.bookId?.id || item.bookId) !== bookId);
+      fetchRecommendations(updated);
+      return updated;
+    });
 
     try {
       const response = await fetch(`${API_URL}/favorites`, {
@@ -321,50 +365,154 @@ export default function FavoritesScreen({ navigation }) {
     );
   }
 
-  if (favorites.length === 0) {
+  const renderRecommendations = () => {
+    if (!recommendedBooks || recommendedBooks.length === 0) return null;
+
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <View style={styles.header}>
-          <View style={styles.titleRow}>
-            <Ionicons name="heart" size={24} color="#B91C1C" />
-            <Text style={styles.mainTitle}>
-              {language === 'vi' ? 'Sách yêu thích' : 'My Wishlist'}
+      <View style={styles.recommendSection}>
+        <View style={styles.recommendHeader}>
+          <View style={styles.recommendTitleRow}>
+            <Ionicons name="sparkles" size={18} color="#B91C1C" />
+            <Text style={styles.recommendTitle}>
+              {language === 'vi' ? 'Gợi ý có thể bạn thích' : 'Recommended For You'}
             </Text>
           </View>
+          <Text style={styles.recommendSubtitle}>
+            {language === 'vi'
+              ? 'Dựa trên các thể loại & tác giả bạn quan tâm'
+              : 'Based on genres and authors you love'}
+          </Text>
         </View>
 
-        <View style={styles.emptyContainer}>
+        <View style={styles.recommendGrid}>
+          {recommendedBooks.map((item) => {
+            const originalPrice = Math.round((item.price || 0) * 1.15);
+            const bookId = (item._id || item.id).toString();
+            const isAdding = addingCartId === bookId;
+
+            return (
+              <TouchableOpacity
+                key={bookId}
+                style={styles.recommendCard}
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate('Chi tiết', { book: item })}
+              >
+                <View style={styles.recommendImageWrapper}>
+                  <Image
+                    source={{
+                      uri: item.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400',
+                    }}
+                    style={styles.recommendCoverImage}
+                  />
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountText}>-15%</Text>
+                  </View>
+                </View>
+
+                <View style={styles.recommendCardBody}>
+                  {item.category ? (
+                    <View style={styles.categoryTag}>
+                      <Text style={styles.categoryTagText} numberOfLines={1}>
+                        {item.category}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.gridTitle} numberOfLines={2}>
+                    {item.bookName || (language === 'vi' ? 'Đang cập nhật' : 'Untitled')}
+                  </Text>
+
+                  <Text style={styles.gridAuthor} numberOfLines={1}>
+                    {item.author || (language === 'vi' ? 'Nhiều tác giả' : 'Various Authors')}
+                  </Text>
+
+                  <View style={styles.ratingRow}>
+                    <Ionicons name="star" size={13} color="#F59E0B" />
+                    <Text style={styles.ratingText}>
+                      {item.averageRating && item.averageRating > 0 ? item.averageRating.toFixed(1) : '5.0'}
+                    </Text>
+                    <Text style={styles.reviewCountText}>({item.totalReviews || 0})</Text>
+                  </View>
+
+                  <View style={styles.priceRow}>
+                    <View style={styles.priceWrapper}>
+                      <Text style={styles.gridPrice}>{(item.price || 0).toLocaleString('vi-VN')} đ</Text>
+                      <Text style={styles.originalPrice}>{originalPrice.toLocaleString('vi-VN')} đ</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.quickAddBtn}
+                      activeOpacity={0.8}
+                      onPress={() => handleQuickAddToCart(item)}
+                      disabled={isAdding}
+                    >
+                      {isAdding ? (
+                        <ActivityIndicator size="small" color="#B91C1C" />
+                      ) : (
+                        <Ionicons name="bag-handle-outline" size={16} color="#B91C1C" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
+  const renderEmptyComponent = () => {
+    if (searchQuery.trim().length > 0) {
+      return (
+        <View style={[styles.emptyContainer, { paddingVertical: 36 }]}>
           <View style={styles.emptyContent}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="heart-dislike-outline" size={54} color="#B91C1C" />
-            </View>
+            <Ionicons name="search-outline" size={48} color="#94A3B8" style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>
-              {language === 'vi' ? 'Danh sách yêu thích trống' : 'Wishlist is empty'}
+              {language === 'vi' ? 'Không tìm thấy sách' : 'No books found'}
             </Text>
             <Text style={styles.emptyDesc}>
               {language === 'vi'
-                ? 'Bạn chưa lưu cuốn sách nào. Nhấn vào biểu tượng trái tim ở cuốn sách bạn thích để lưu lại đọc sau nhé!'
-                : 'You have not saved any books yet. Tap the heart icon on any book you love to save it for later!'}
+                ? `Không có kết quả nào cho "${searchQuery}"`
+                : `No results matching "${searchQuery}"`}
             </Text>
-            <TouchableOpacity
-              style={styles.exploreBtn}
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate('Home')}
-            >
-              <Text style={styles.exploreBtnText}>
-                {language === 'vi' ? 'Khám phá sách hay' : 'Explore books'}
-              </Text>
-              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-            </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
+      );
+    }
+
+    return (
+      <View style={[styles.emptyContainer, { paddingVertical: 36 }]}>
+        <View style={styles.emptyContent}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="heart-dislike-outline" size={54} color="#B91C1C" />
+          </View>
+          <Text style={styles.emptyTitle}>
+            {language === 'vi' ? 'Danh sách yêu thích trống' : 'Wishlist is empty'}
+          </Text>
+          <Text style={styles.emptyDesc}>
+            {language === 'vi'
+              ? 'Bạn chưa lưu cuốn sách nào. Khám phá các sách gợi ý bên dưới hoặc nhấn khám phá để chọn sách yêu thích nhé!'
+              : 'You have not saved any books yet. Explore recommended books below or tap explore to find books you love!'}
+          </Text>
+          <TouchableOpacity
+            style={styles.exploreBtn}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('Home')}
+          >
+            <Text style={styles.exploreBtnText}>
+              {language === 'vi' ? 'Khám phá sách hay' : 'Explore books'}
+            </Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
     );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* 1. HEADER NỔI BẬT VỚI TIÊU ĐỀ & NÚT CHUYỂN CHẾ ĐỘ XEM / GIỎ HÀNG */}
+      {/* 1. HEADER */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.titleRow}>
@@ -381,18 +529,20 @@ export default function FavoritesScreen({ navigation }) {
         </View>
 
         <View style={styles.headerActions}>
-          {/* Nút chuyển đổi giao diện Lưới 2 cột / Danh sách ngang */}
-          <TouchableOpacity
-            style={styles.iconBtn}
-            activeOpacity={0.8}
-            onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-          >
-            <Ionicons
-              name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'}
-              size={20}
-              color="#0F172A"
-            />
-          </TouchableOpacity>
+          {/* Nút chuyển đổi giao diện Lưới 2 cột / Danh sách ngang (chỉ khi có sách) */}
+          {favorites.length > 0 && (
+            <TouchableOpacity
+              style={styles.iconBtn}
+              activeOpacity={0.8}
+              onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            >
+              <Ionicons
+                name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'}
+                size={20}
+                color="#0F172A"
+              />
+            </TouchableOpacity>
+          )}
 
           {/* Nút giỏ hàng có badge số lượng realtime */}
           <TouchableOpacity
@@ -437,16 +587,18 @@ export default function FavoritesScreen({ navigation }) {
         </View>
       )}
 
-      {/* 3. DANH SÁCH SÁCH YÊU THÍCH (GRID HOẶC LIST) */}
+      {/* 3. DANH SÁCH SÁCH YÊU THÍCH & GỢI Ý 2 CỘT DỌC */}
       <FlatList
-        key={viewMode} // Buộc re-render an toàn khi đổi số cột numColumns
+        key={viewMode}
         data={displayFavorites}
-        keyExtractor={(item) => (item._id || item.id || item.bookId?._id).toString()}
+        keyExtractor={(item) => (item._id || item.id || item.bookId?._id || Math.random()).toString()}
         renderItem={viewMode === 'grid' ? renderGridItem : renderListItem}
         numColumns={viewMode === 'grid' ? 2 : 1}
-        columnWrapperStyle={viewMode === 'grid' ? styles.gridRow : undefined}
+        columnWrapperStyle={viewMode === 'grid' && displayFavorites.length > 0 ? styles.gridRow : undefined}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={renderEmptyComponent}
+        ListFooterComponent={renderRecommendations}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

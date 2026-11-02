@@ -139,14 +139,27 @@ export default function CheckoutScreen({ navigation }) {
           : 'Awaiting bank transfer confirmation. Test version does not charge real money.',
         [
           {
+            text: language === 'vi' ? 'Tiếp tục mua sắm' : 'Continue Shopping',
+            style: 'cancel',
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main', params: { screen: 'Home' } }],
+              });
+            },
+          },
+          {
             text: language === 'vi' ? 'Xem đơn hàng' : 'View Order',
-            onPress: () => navigation.navigate('Main', {
-              screen: 'Orders',
-              params: {
-                screen: 'OrderDetail',
-                params: { orderId: data.order._id },
-              },
-            }),
+            onPress: () => {
+              navigation.navigate('Main', {
+                screen: 'Orders',
+                params: {
+                  screen: 'OrderDetail',
+                  initial: false,
+                  params: { orderId: data.order._id },
+                },
+              });
+            },
           },
         ]
       );

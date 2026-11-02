@@ -512,4 +512,81 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+
+  /* RELATED BOOKS SLIDER */
+  relatedSection: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  relatedHeader: {
+    marginBottom: 12,
+  },
+  relatedTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  relatedTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  relatedSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  relatedScroll: {
+    paddingVertical: 4,
+    gap: 12,
+  },
+  relatedCard: {
+    width: 135,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  relatedImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    resizeMode: 'cover',
+  },
+  relatedBadge: {
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+  },
+  relatedBadgeText: {
+    fontSize: 10,
+    color: '#B91C1C',
+    fontWeight: '700',
+  },
+  relatedBookTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 4,
+    lineHeight: 16,
+    minHeight: 32,
+  },
+  relatedPrice: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B91C1C',
+    marginTop: 4,
+  },
 });

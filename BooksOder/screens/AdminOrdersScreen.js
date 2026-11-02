@@ -162,19 +162,81 @@ export default function AdminOrdersScreen({ navigation }) {
     }
   };
 
-  // Cập nhật trạng thái đơn hàng qua API
+  const showPaymentConfirmationPrompt = (order) => {
+    Alert.alert(
+      'Chưa xác nhận thanh toán ⚠️',
+      'Đơn hàng này thanh toán bằng Chuyển khoản ngân hàng nhưng chưa được xác nhận đã thu tiền.\n\nBạn có muốn xác nhận đã thu tiền và duyệt giao hàng luôn không?',
+      [
+        {
+          text: 'Để sau',
+          style: 'cancel',
+        },
+        {
+          text: 'Xác nhận & Giao hàng',
+          style: 'default',
+          onPress: () => confirmPaymentAndShip(order._id),
+        },
+      ]
+    );
+  };
+
+  const confirmPaymentAndShip = async (orderId) => {
+    setUpdatingId(orderId);
+    try {
+      const payRes = await fetch(`${API_URL}/orders/${orderId}/payment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentStatus: 'paid' }),
+      });
+      const payData = await payRes.json();
+      if (!payRes.ok) {
+        Alert.alert('Không thể xác nhận thanh toán', payData.message || 'Lỗi khi cập nhật thanh toán.');
+        return;
+      }
+
+      const statusRes = await fetch(`${API_URL}/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Shipping' }),
+      });
+      const statusData = await statusRes.json();
+      if (!statusRes.ok) {
+        Alert.alert('Không thể chuyển trạng thái', statusData.message || 'Lỗi khi cập nhật giao hàng.');
+        return;
+      }
+
+      Alert.alert('Thành công 🎉', 'Đã xác nhận thanh toán và duyệt đơn hàng sang trạng thái "Đang vận chuyển".');
+      setOrders((prev) =>
+        prev.map((o) => (o._id === orderId ? { ...o, ...statusData.order, paymentStatus: 'paid' } : o))
+      );
+      await Promise.all([fetchOrders(), fetchWalletBalance()]);
+    } catch (error) {
+      console.error('Lỗi quy trình xác nhận thanh toán và giao hàng:', error);
+      Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleApproveOrder = (order) => {
+    if (order.paymentMethod === 'BANK_TRANSFER' && order.paymentStatus !== 'paid') {
+      showPaymentConfirmationPrompt(order);
+      return;
+    }
+    handleUpdateStatus(order._id, 'Shipping');
+  };
+
   const handleUpdateStatus = async (orderId, newStatus) => {
     setUpdatingId(orderId);
-    const requestBody = { status: newStatus };
     const currentOrder = orders.find((order) => order._id === orderId);
-    const isCancel = newStatus === 'Đã hủy';
+    const isCancel = newStatus === 'Đã hủy' || newStatus === 'Cancelled';
+    const statusToSend = isCancel ? 'Cancelled' : newStatus;
+    const requestBody = { status: statusToSend };
     try {
-      const response = await fetch(`${API_URL}/orders/${orderId}/${isCancel ? 'cancel' : 'status'}`, {
+      const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
         method: 'PUT',
-        ...(isCancel ? {} : {
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -185,22 +247,26 @@ export default function AdminOrdersScreen({ navigation }) {
         );
         await Promise.all([fetchOrders(), fetchWalletBalance()]);
       } else {
+        if (response.status === 400 && data.message?.includes('chuyển khoản')) {
+          showPaymentConfirmationPrompt(currentOrder || { _id: orderId });
+          return;
+        }
         console.error('API từ chối cập nhật trạng thái đơn hàng:', {
           orderId,
           currentStatus: currentOrder?.status,
           requestedStatus: newStatus,
           httpStatus: response.status,
           response: data,
-          payload: isCancel ? null : requestBody,
+          payload: requestBody,
         });
-        Alert.alert('Thất bại', data.message || `HTTP ${response.status}: Không thể cập nhật trạng thái đơn.`);
+        Alert.alert('Không thể cập nhật', data.message || `Lỗi (${response.status}): Không thể cập nhật trạng thái đơn.`);
       }
     } catch (error) {
       console.error('Lỗi request cập nhật trạng thái đơn hàng:', {
         orderId,
         currentStatus: currentOrder?.status,
         requestedStatus: newStatus,
-        payload: isCancel ? null : requestBody,
+        payload: requestBody,
         error,
       });
       Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
@@ -257,6 +323,7 @@ export default function AdminOrdersScreen({ navigation }) {
     const isPending = norm === 'Chờ xác nhận';
     const isShipping = norm === 'Đang vận chuyển';
     const isDelivered = norm === 'Đã nhận hàng';
+    const isCancelled = norm === 'Đã hủy';
     const isUpdating = updatingId === item._id;
 
     const dateStr = item.createdAt
@@ -273,40 +340,70 @@ export default function AdminOrdersScreen({ navigation }) {
 
     return (
       <View style={styles.orderCard}>
-        <CancellationNotice order={item} />
-        <PaymentPanel order={item} onUpdate={updated => setOrders(previous => previous.map(o => o._id === updated._id ? { ...o, ...updated } : o))} />
-        <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { orderId: item._id })}><Text style={{ color: '#B91C1C', fontWeight: '700', marginBottom: 12 }}>Xem chi tiết đơn hàng →</Text></TouchableOpacity>
-        {/* Header thẻ: Mã đơn & Trạng thái */}
-        <View style={styles.cardTopRow}>
-          <View>
+        {/* 1. Header: Mã đơn, Ngày đặt, Badge trạng thái và Nút mở chi tiết */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('OrderDetail', { orderId: item._id })}
+          style={styles.cardTopRow}
+        >
+          <View style={{ flex: 1 }}>
             <Text style={styles.orderCodeText}>Đơn #{orderCode}</Text>
-            {dateStr ? <Text style={styles.orderDateText}>{dateStr}</Text> : null}
+            {dateStr ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 4 }}>
+                <Ionicons name="time-outline" size={12} color="#94A3B8" />
+                <Text style={styles.orderDateText}>{dateStr}</Text>
+              </View>
+            ) : null}
           </View>
-          <View style={statusConfig.badgeStyle}>
-            <Ionicons name={statusConfig.iconName} size={14} color={statusConfig.iconColor} />
-            <Text style={statusConfig.textStyle}>{statusConfig.label}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={statusConfig.badgeStyle}>
+              <Ionicons name={statusConfig.iconName} size={13} color={statusConfig.iconColor} />
+              <Text style={statusConfig.textStyle}>{statusConfig.label}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </View>
-        </View>
+        </TouchableOpacity>
 
-        {/* Khối thông tin khách hàng & Địa chỉ */}
+        {/* 2. Khối thông tin khách hàng & Địa chỉ giao hàng */}
         <View style={styles.customerBox}>
           <View style={styles.customerRow}>
-            <Ionicons name="person-circle" size={18} color="#B91C1C" />
+            <Ionicons name="person-circle" size={17} color="#B91C1C" />
             <Text style={styles.customerName}>
-              {item.customerName || 'Khách vãng lai'}
+              {item.recipientName || item.customerName || 'Khách vãng lai'}
             </Text>
+            {item.phone ? (
+              <Text style={styles.customerPhone}> · 📞 {item.phone}</Text>
+            ) : null}
           </View>
           <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={15} color="#64748B" style={{ marginTop: 2 }} />
+            <Ionicons name="location-outline" size={14} color="#64748B" style={{ marginTop: 2 }} />
             <Text style={styles.addressText} numberOfLines={2}>
               {item.address || 'Không có địa chỉ giao hàng'}
             </Text>
           </View>
+          {item.note ? (
+            <View style={styles.noteRow}>
+              <Ionicons name="chatbubble-ellipses-outline" size={13} color="#D97706" style={{ marginTop: 2 }} />
+              <Text style={styles.noteText} numberOfLines={2}>
+                Ghi chú: {item.note}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        {/* Danh sách sách trong đơn */}
+        {/* 3. Thanh trạng thái & xác nhận thanh toán (Gọn gàng) */}
+        <PaymentPanel
+          order={item}
+          compact={true}
+          onUpdate={updated => setOrders(previous => previous.map(o => o._id === updated._id ? { ...o, ...updated } : o))}
+        />
+
+        {/* 4. Thông báo hủy đơn (Nếu đơn đã hủy) */}
+        {isCancelled && <CancellationNotice order={item} />}
+
+        {/* 5. Danh sách sách trong đơn (Tối đa 2 sản phẩm hiển thị tóm tắt) */}
         <View style={styles.itemsSection}>
-          {validItems.map((orderItem, idx) => {
+          {validItems.slice(0, 2).map((orderItem, idx) => {
             const book = orderItem.bookId || {};
             return (
               <View key={orderItem._id || idx} style={styles.itemRow}>
@@ -330,13 +427,26 @@ export default function AdminOrdersScreen({ navigation }) {
               </View>
             );
           })}
+
+          {validItems.length > 2 && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('OrderDetail', { orderId: item._id })}
+              style={styles.moreItemsRow}
+            >
+              <Text style={styles.moreItemsText}>
+                + {validItems.length - 2} sản phẩm khác (Bấm để xem tất cả)
+              </Text>
+              <Ionicons name="chevron-forward" size={13} color="#B91C1C" />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Footer: Tổng tiền & Các nút hành động duyệt */}
+        {/* 6. Footer: Tổng tiền & Các nút hành động nghiệp vụ */}
         <View style={styles.cardFooter}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>
-              Tổng thanh toán ({validItems.length} đầu sách):
+              Tổng thanh toán ({validItems.length} sản phẩm):
             </Text>
             <Text style={styles.totalAmount}>
               {(item.totalAmount || 0).toLocaleString('vi-VN')} đ
@@ -345,6 +455,16 @@ export default function AdminOrdersScreen({ navigation }) {
 
           {/* Các nút xử lý nghiệp vụ nhanh */}
           <View style={styles.actionsRow}>
+            {/* Nút Xem chi tiết */}
+            <TouchableOpacity
+              style={styles.btnDetail}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('OrderDetail', { orderId: item._id })}
+            >
+              <Ionicons name="eye-outline" size={14} color="#475569" />
+              <Text style={styles.btnDetailText}>Chi tiết</Text>
+            </TouchableOpacity>
+
             {/* Nếu Chờ xác nhận -> Nút Hủy đơn & Nút Duyệt & Giao */}
             {isPending && (
               <>
@@ -370,13 +490,13 @@ export default function AdminOrdersScreen({ navigation }) {
                   style={styles.btnApprove}
                   activeOpacity={0.85}
                   disabled={isUpdating}
-                  onPress={() => handleUpdateStatus(item._id, 'Shipping')}
+                  onPress={() => handleApproveOrder(item)}
                 >
                   {isUpdating ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <>
-                      <Ionicons name="bicycle" size={15} color="#FFFFFF" />
+                      <Ionicons name="bicycle" size={14} color="#FFFFFF" />
                       <Text style={styles.btnApproveText}>Duyệt & Giao hàng</Text>
                     </>
                   )}
@@ -384,13 +504,15 @@ export default function AdminOrdersScreen({ navigation }) {
               </>
             )}
 
-            {/* Chờ khách xác nhận khi đơn đang giao */}
+            {/* Khi đơn đang giao */}
             {isShipping && (
-              <Text style={{ color: '#2563EB', fontSize: 13, fontWeight: '700', flex: 1 }}>
-                Đang giao - Chờ khách hàng xác nhận nhận hàng
-              </Text>
+              <View style={styles.shippingNotice}>
+                <Ionicons name="car-outline" size={14} color="#2563EB" />
+                <Text style={styles.shippingNoticeText}>Đang giao hàng</Text>
+              </View>
             )}
 
+            {/* Nếu Đã nhận hàng -> Nút Xác nhận Hoàn thành */}
             {isDelivered && (
               <TouchableOpacity
                 style={styles.btnComplete}
@@ -402,8 +524,8 @@ export default function AdminOrdersScreen({ navigation }) {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-done" size={16} color="#FFFFFF" />
-                    <Text style={styles.btnCompleteText}>Xác nhận Hoàn thành</Text>
+                    <Ionicons name="checkmark-done" size={15} color="#FFFFFF" />
+                    <Text style={styles.btnCompleteText}>Hoàn thành đơn</Text>
                   </>
                 )}
               </TouchableOpacity>

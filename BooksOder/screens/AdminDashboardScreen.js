@@ -19,7 +19,7 @@ import { useLanguage } from '../src/context/LanguageContext';
 import { styles } from '../styles/AdminDashboardScreenStyles';
 
 export default function AdminDashboardScreen({ navigation }) {
-  const { userName } = useAuth();
+  const { userName, logout } = useAuth();
   const { t, language, toggleLanguage } = useLanguage();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -92,6 +92,21 @@ export default function AdminDashboardScreen({ navigation }) {
     fetchStats();
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      t('common.confirm') || 'Xác nhận',
+      language === 'vi' ? 'Bạn có muốn đăng xuất khỏi quyền Quản trị viên?' : 'Do you want to log out of Admin?',
+      [
+        { text: t('common.cancel') || 'Hủy', style: 'cancel' },
+        {
+          text: t('common.logout') || 'Đăng xuất',
+          style: 'destructive',
+          onPress: () => logout(),
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -125,14 +140,10 @@ export default function AdminDashboardScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center' }}
-            onPress={() => navigation.navigate('AdminProfile')}
-            activeOpacity={0.75}
-          >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name="person-circle" size={22} color="#B91C1C" style={{ marginRight: 5 }} />
             <Text style={styles.headerSubtitle}>{t('admin.hello')} {userName || 'Admin'}</Text>
-          </TouchableOpacity>
+          </View>
           <Text style={styles.headerTitle}>{t('admin.dashboardTitle')}</Text>
         </View>
 
@@ -153,7 +164,14 @@ export default function AdminDashboardScreen({ navigation }) {
               {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
             </Text>
           </TouchableOpacity>
-
+          <TouchableOpacity
+            style={[styles.logoutBtn, { paddingHorizontal: 10 }]}
+            onPress={handleLogout}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.logout') || 'Đăng xuất'}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#B91C1C" />
+          </TouchableOpacity>
         </View>
       </View>
 
