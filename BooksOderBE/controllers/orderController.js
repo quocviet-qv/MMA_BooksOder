@@ -14,6 +14,29 @@ const normalize = s => ({
   'Hoàn thành': 'Completed',
   'Đã hủy': 'Cancelled',
 }[s] || s);
+const CANCELLATION_REASONS = {
+  changed_mind: 'Không còn nhu cầu mua sách',
+  change_address: 'Muốn thay đổi địa chỉ nhận hàng',
+  change_items: 'Muốn thay đổi sách hoặc số lượng',
+  found_better_price: 'Tìm được giá phù hợp hơn',
+  delivery_too_slow: 'Thời gian giao hàng quá lâu',
+  other: 'Lý do khác',
+};
+
+function customerCancellation(body) {
+  const { reasonCode, reasonDetail = '' } = body || {};
+  if (typeof reasonCode !== 'string' || !Object.hasOwn(CANCELLATION_REASONS, reasonCode)) {
+    throw fail(400, 'Vui lòng chọn lý do hủy đơn hàng');
+  }
+  if (typeof reasonDetail !== 'string' || reasonDetail.length > 500) {
+    throw fail(400, 'Nội dung lý do hủy không được vượt quá 500 ký tự');
+  }
+  const details = reasonDetail.trim();
+  if (reasonCode === 'other' && details.length < 5) {
+    throw fail(400, 'Vui lòng nhập lý do khác từ 5 đến 500 ký tự');
+  }
+  return { cancellationReasonCode: reasonCode, cancellationReason: CANCELLATION_REASONS[reasonCode], cancellationDetails: details, cancelledBy: 'customer' };
+}
 const STORE_VOUCHERS = [
   {
     code: 'GIAM10',
@@ -209,9 +232,14 @@ async function changeStatus(req, status, userCancellation = false) {
       throw fail(400, `Không thể chuyển trạng thái đơn hàng: trạng thái hiện tại "${order.status}", trạng thái yêu cầu "${status}", vai trò "${req.user.role}".`);
     }
     if (status === 'Completed' && order.paymentStatus !== 'paid') throw fail(400, 'Cần xác nhận đã thu tiền trước khi hoàn thành đơn');
+    if (status === 'Shipping' && order.paymentMethod === 'BANK_TRANSFER' && order.paymentStatus !== 'paid') throw fail(400, 'Cần xác nhận chuyển khoản trước khi giao hàng');
     if (status === 'Cancelled') {
+      const cancellation = userCancellation
+        ? customerCancellation(req.body)
+        : { cancelledBy: 'admin' };
       for (const item of order.items) if (item.bookId) await Book.updateOne({ _id: item.bookId }, { $inc: { stock: item.quantity } }, { session });
       if (order.paymentStatus === 'paid') order.paymentStatus = 'refund_pending';
+      Object.assign(order, cancellation, { cancelledAt: new Date() });
     }
     if (status === 'Completed' && !order.isRevenueAdded) {
       await addRevenueToAdmin(order, session);
@@ -251,7 +279,10 @@ async function changeStatus(req, status, userCancellation = false) {
   await result.populate('items.bookId');
   return view(result);
 }
-exports.cancelOrder = async (req, res) => res.json({ message: 'Đã hủy đơn hàng', order: await changeStatus(req, 'Cancelled', true) });
+exports.cancelOrder = async (req, res) => {
+  if (req.user.role !== 'user') throw fail(403, 'Chỉ khách hàng được gửi yêu cầu hủy đơn tại đây');
+  res.json({ message: 'Đã hủy đơn hàng', order: await changeStatus(req, 'Cancelled', true) });
+};
 exports.updateOrderStatus = async (req, res) => {
   const status = normalize(req.body.status);
   if (!['Shipping', 'Delivered', 'Completed'].includes(status)) throw fail(400, 'Trạng thái đơn hàng không hợp lệ');
